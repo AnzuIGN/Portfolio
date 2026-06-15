@@ -1,0 +1,2395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MusikAI – Dynamic UI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* --- Desktop / PC Dynamic Layout --- */
+    @media (min-width: 768px) {
+      .app-shell {
+        /* Constrain the max-width for PC so it doesn't stretch to infinity, 
+          or remove it completely if you want a true full-screen desktop web app */
+        max-width: 1200px; 
+        
+        /* Prepping for a dynamic desktop layout (e.g., Sidebar on the left, Player on the right) */
+        display: flex; 
+        flex-direction: row; 
+      }
+
+      /* Keep the mini-player contained within the new PC width rather than spanning the entire monitor */
+      .home-mini-player {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      
+      /* You can also adjust your font sizes and padding here for PC users */
+      .home-section-title {
+        font-size: 1.5rem; 
+      }
+    }
+    :root {
+      --text: #111111;
+      --muted: #6b5c49;
+      --bg: #efe2cf;
+      --outer: #4e3d2b;
+      --panel: #d6c2a6;
+      --panel2: #c4b29a;
+      --chip: #8b7357;
+      --chipHover: #c4b29a;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: #4e3d2b; 
+      display: flex;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .app-shell { 
+      width: 100%; 
+      max-width: 500px;
+      height: 100%; /* Lock the exact height */
+      min-height: 100dvh; 
+      margin: 0 auto;
+      position: relative;
+      transition: zoom 0.2s ease-out;
+      overflow: hidden; /* Change overflow-x: hidden to overflow: hidden to clip the translated Y-axis */
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .app-shell::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .fade-top { background: linear-gradient(to bottom, rgba(239,226,207,1), rgba(239,226,207,0)); }
+    .fade-bottom { background: linear-gradient(to top, rgba(239,226,207,1), rgba(239,226,207,0)); }
+    .player-top-fade { background: linear-gradient(to bottom, rgba(239,226,207,1), rgba(239,226,207,0)); }
+    .player-bottom-fade { background: linear-gradient(to top, rgba(239,226,207,1), rgba(239,226,207,0)); }
+    .chip { background: #b49b79; color: #111111; border-radius: 9999px; padding: .38rem .8rem; font-size: .98rem; line-height: 1; white-space: nowrap; }
+    .chip:hover { background: #c4b29a; }
+    .title-marquee {
+      overflow: hidden;
+      white-space: nowrap;
+      width: 100%;
+      mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    }
+    .title-marquee-inner {
+      display: inline-block;
+      padding-left: 100%;
+      animation: marquee 9s linear infinite;
+      will-change: transform;
+    }
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+    .vinyl-spin { animation: spin 4.8s linear infinite; }
+    .vinyl-spin-slow { animation: spin 8s linear infinite; }
+    .vinyl-stop { animation-play-state: paused; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .tonearm { transform-origin: 20px 20px; transition: transform .6s ease; transform: rotate(-40deg); }
+    .tonearm.playing { transform: rotate(-15deg); }
+    .wave-bar { width: 4px; border-radius: 999px; background: #b49b79; transition: all .2s ease; cursor: pointer; }
+    .wave-bar.played { background: #7a684e; }
+    .wave-bar:hover { filter: brightness(1.2); }
+    .sheet {
+      position: absolute; inset: 0; overflow: hidden;
+    }
+    .view { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+    .hidden-view { 
+      opacity: 0; 
+      pointer-events: none; 
+      transform: translateY(12px) scale(0.98); 
+      z-index: 0; 
+    }
+    .visible-view { 
+      opacity: 1; 
+      pointer-events: auto; 
+      transform: translateY(0) scale(1); 
+      z-index: 10; 
+    }
+    .transition-soft { 
+      transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                  transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+    }
+    .button-pill.active {
+      background: linear-gradient(to bottom, var(--panel), var(--panel2));
+      color: #111111;
+    }
+    .button-pill.inactive {
+      background: var(--panel);
+      color: #6b5c49;
+    }
+    .panel-gradient {
+      background: linear-gradient(to bottom, rgba(196,178,154,1), rgba(196,178,154,0));
+    }
+    .home-card {
+      background: linear-gradient(to bottom, #d6c2a6, rgba(239,226,207,0));
+      border-radius: 14px;
+    }
+    .cover-note {
+      display: grid;
+      place-items: center;
+      background: rgba(78,61,43,.08);
+    }
+    .glow { box-shadow: 0 12px 40px rgba(78,61,43,.22); }
+    .lyrics-scroll { 
+      max-height: calc(100dvh - 400px); 
+      place-items: center;
+      overflow-y: auto; 
+    }
+        .player-drawer { 
+      transition: max-height .35s ease, opacity .35s ease, transform .35s ease; 
+      overflow-y: auto;
+    }
+    .track-swap { animation: swap .42s ease; }
+    @keyframes swap {
+      0% { transform: scale(.96); opacity: .15; }
+      45% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .drawer-collapsed { 
+      max-height: 0px; 
+    }
+
+    .drawer-expanded { 
+      max-height: calc(100dvh - 350px); 
+    }
+    .home-section-title {
+      color: #111111; font-size: 1.15rem; line-height: 1.2;
+    }
+    .section { 
+      background: linear-gradient(to bottom, rgba(239,226,207,.18), #e1cfb2 45%, rgba(239,226,207,.24)); 
+    }
+    .recommend-bg { 
+      background: linear-gradient(to bottom, #d6c2a6, #efe2cf); 
+      margin-top: -160px;
+      padding-top: 160px;
+    }
+    .home-mini-player {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 35;
+    }
+    .home-mini-player-shell {
+      background: linear-gradient(to bottom, rgba(239,226,207,.92), rgba(239,226,207,.98));
+      border-top: 1px solid rgba(78,61,43,.12);
+      box-shadow: 0 -14px 40px rgba(78,61,43,.24);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }svg {
+    color: #111111; 
+    }
+    
+    .home-mini-title-fade {
+      max-width: 100%;
+      mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    }
+    .mini-swap {
+      animation: miniSwap .38s ease;
+    }
+    @keyframes miniSwap {
+      0% { transform: translateY(14px) scale(.92); opacity: .18; }
+      48% { transform: translateY(-2px) scale(1.04); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .thin-divider { border-color: #9b856a; }
+
+    /* Modal z-index fix */
+    #searchModal, #createModal { z-index: 70; }
+    #searchModal:not(.hidden), #createModal:not(.hidden) > div { z-index: 71; }
+
+    #searchView, #voiceResultView {
+      z-index: 75;
+    }
+
+    #searchBlurOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(78, 61, 43, 0.62);
+  backdrop-filter: blur(15px); /* Creates the frosted glass look */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  transition: opacity 0.3s ease;
+}
+
+.hidden { display: none !important; }
+
+.voice-search-container {
+  position: relative;
+  text-align: center;
+}
+
+#active-mic-icon {
+  width: 100px;
+  height: 100px;
+  background: #c4b29a;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  transition: transform 0.05s ease-out; /* Crucial for smooth audio movement */
+}
+
+#mic-pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100px;
+  height: 100px;
+  margin: -70px 0 0 -50px;
+  background: rgba(214,194,166,0.82);
+  border-radius: 50%;
+  z-index: 5;
+  transition: transform 0.05s ease-out;
+}
+
+#status-text {
+  color: #111111;
+  margin-top: 20px;
+  font-family: sans-serif;
+  letter-spacing: 1px;
+}
+
+    .search-shell {
+      background: linear-gradient(to bottom, #efe2cf 0%, #efe2cf 25%, rgba(239,226,207,0) 100%);
+    }
+    .search-chip {
+      background: #cdb696;
+      border: 1px solid rgba(78,61,43,.12);
+      color: #111111;
+      border-radius: 9999px;
+      padding: .45rem .85rem;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .search-chip.active {
+      background: #8b7357;
+    }
+    .search-history-row {
+      background: rgba(78,61,43,.10);
+      border: 1px solid rgba(78,61,43,.14);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .mic-listening {
+      animation: micPulse 1s ease-in-out infinite;
+    }
+    @keyframes micPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(78,61,43,.16); }
+      50% { transform: scale(1.06); box-shadow: 0 0 0 18px rgba(78,61,43,0); }
+    }
+    .voice-blur {
+      background: rgba(78,61,43,.30);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    #playerView {
+
+      height: 100%; 
+      top: auto;
+      bottom: 0;
+    }
+
+    #playerView.hidden-view {
+      transform: translateY(100%);
+      opacity: 1;
+    }
+
+    #playerView.visible-view {
+      transform: translateY(0);
+    }
+
+    #playerBg {
+      background-size: cover;
+      background-position: center;
+      filter: blur(75px) brightness(1.08) saturate(.86) opacity(.46);
+      transform: scale(1.15);
+      z-index: 0;
+    }
+
+    #coverArt img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    #miniPlayerBg {
+      background-size: cover;
+      background-position: center;
+      filter: blur(75px) brightness(1.08) saturate(.86) opacity(.46);
+      transform: scale(1.15);
+    }
+
+    /* Account pop-up */
+    #accountModal, #signOutModal {
+      z-index: 80;
+    }
+    .account-backdrop {
+      background: rgba(78, 61, 43, 0.42);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .account-panel {
+      background: linear-gradient(to bottom, rgba(239,226,207,.92), rgba(239,226,207,.98));
+      border-top: 1px solid rgba(78,61,43,.16);
+      box-shadow: 0 -18px 60px rgba(78,61,43,.30);
+    }
+    .account-header-fade {
+      background: linear-gradient(to bottom, rgba(239,226,207,1), rgba(239,226,207,0));
+    }
+    .account-list-fade-top {
+      background: linear-gradient(to top, rgba(239,226,207,1), rgba(239,226,207,0));
+    }
+    .account-item {
+      background: rgba(78,61,43,.10);
+      border: 1px solid rgba(78,61,43,.12);
+    }
+    .account-item:hover {
+      background: rgba(78,61,43,.14);
+    }
+    .account-arrow {
+      transform: translateX(0);
+      transition: transform .18s ease;
+    }
+    .account-item:hover .account-arrow {
+      transform: translateX(2px);
+    }
+    
+    body:not([data-theme="dark"]) img[alt="Logo"] {
+      content: url("https://media.discordapp.net/attachments/1199699191153299540/1500446280617295882/Untitled88_20260503183737.png?ex=69f876fe&is=69f7257e&hm=1fee7431ec802ffe33306ff6a9a1bec0dd1dbfb518ec7daa63241bf7990ae7ea&=&format=webp&quality=lossless&width=990&height=990");
+    }
+
+    body[data-theme] {
+      background: var(--outer);
+      color: var(--text);
+    }
+    body[data-theme] .app-shell { background: var(--outer); }
+
+    body[data-theme="dark"] {
+      --text: #ccc;
+      --muted: #888;
+      --bg: #111;
+      --outer: #000;
+      --panel: #222;
+      --panel2: #333;
+      --panelSoft: #171717;
+      --chip: #444;
+      --chipHover: #555;
+      --line: rgba(255,255,255,.08);
+      --wash: rgba(255,255,255,.03);
+    }
+
+    body[data-theme="dark"] .fade-top,
+    body[data-theme="dark"] .player-top-fade,
+    body[data-theme="dark"] .account-header-fade {
+      background: linear-gradient(to bottom, rgba(17,17,17,1), rgba(17,17,17,0));
+    }
+    body[data-theme="dark"] .fade-bottom,
+    body[data-theme="dark"] .player-bottom-fade,
+    body[data-theme="dark"] .account-list-fade-top {
+      background: linear-gradient(to top, rgba(17,17,17,1), rgba(17,17,17,0));
+    }
+    body[data-theme="dark"] .chip { background: var(--chip); color: var(--text); }
+    body[data-theme="dark"] .chip:hover { background: var(--chipHover); }
+    body[data-theme="dark"] .wave-bar { background: var(--panel2); }
+    body[data-theme="dark"] .wave-bar.played { background: var(--chipHover); }
+    body[data-theme="dark"] .button-pill.active {
+      background: linear-gradient(to bottom, var(--chip), var(--panel2));
+      color: var(--text);
+    }
+    body[data-theme="dark"] .button-pill.inactive {
+      background: var(--panel);
+      color: var(--muted);
+    }
+    body[data-theme="dark"] .panel-gradient {
+      background: linear-gradient(to bottom, rgba(51,51,51,1), rgba(85,85,85,0));
+    }
+    body[data-theme="dark"] .home-card {
+      background: linear-gradient(to bottom, var(--panel), rgba(0,0,0,0));
+    }
+    body[data-theme="dark"] .cover-note { background: rgba(255,255,255,.02); }
+    body[data-theme="dark"] .section {
+      background: linear-gradient(to bottom, rgba(17,17,17,.10), #000 45%, rgba(17,17,17,.10));
+    }
+    body[data-theme="dark"] .recommend-bg {
+      background: linear-gradient(to bottom, var(--panel), var(--bg));
+    }
+    body[data-theme="dark"] .home-mini-player-shell,
+    body[data-theme="dark"] .account-panel {
+      background: linear-gradient(to bottom, rgba(17,17,17,.92), rgba(17,17,17,.98));
+      border-top-color: var(--line);
+      box-shadow: 0 -18px 60px rgba(0,0,0,.55);
+    }
+    body[data-theme="dark"] .search-shell {
+      background: linear-gradient(to bottom, var(--bg) 0%, var(--bg) 25%, rgba(17,17,17,0) 100%);
+    }
+    body[data-theme="dark"] .search-chip {
+      background: var(--chip);
+      border-color: var(--line);
+      color: var(--text);
+    }
+    body[data-theme="dark"] .search-chip.active { background: var(--chipHover); }
+    body[data-theme="dark"] .search-history-row,
+    body[data-theme="dark"] .account-item {
+      background: var(--wash);
+      border-color: var(--line);
+    }
+    body[data-theme="dark"] .account-item:hover { background: rgba(255,255,255,.05); }
+    body[data-theme="dark"] #active-mic-icon { background: var(--chip); }
+    body[data-theme="dark"] #mic-pulse-ring { background: rgba(34,34,34,.82); }
+    body[data-theme="dark"] #searchBlurOverlay,
+    body[data-theme="dark"] .account-backdrop,
+    body[data-theme="dark"] .voice-blur { background: rgba(0,0,0,.70); }
+    body[data-theme="dark"] [class~="bg-[#efe2cf]"] { background-color: var(--bg) !important; }
+    body[data-theme="dark"] [class~="bg-[#efe2cf]/55"],
+    body[data-theme="dark"] [class~="bg-[#efe2cf]/92"] { background-color: rgba(17,17,17,.76) !important; }
+    body[data-theme="dark"] [class~="bg-[#d6c2a6]"],
+    body[data-theme="dark"] [class~="bg-[#dcc8aa]"],
+    body[data-theme="dark"] [class~="bg-[#d0b895]"] { background-color: var(--panel) !important; }
+    body[data-theme="dark"] [class~="bg-[#c4b29a]"],
+    body[data-theme="dark"] [class~="bg-[#cdb696]"],
+    body[data-theme="dark"] [class~="bg-[#b8a283]"] { background-color: var(--panel2) !important; }
+    body[data-theme="dark"] [class~="bg-[#8b7357]"] { background-color: var(--chip) !important; }
+    body[data-theme="dark"] [class~="bg-[#111111]"] { background-color: var(--text) !important; }
+    body[data-theme="dark"] [class~="bg-[#4e3d2b]"] { background-color: var(--text) !important; }
+    body[data-theme="dark"] [class~="bg-[#4e3d2b]/[0.08]"],
+    body[data-theme="dark"] [class~="bg-[#4e3d2b]/[0.10]"],
+    body[data-theme="dark"] [class~="bg-[#4e3d2b]/[0.16]"] { background-color: rgba(255,255,255,.05) !important; }
+    body[data-theme="dark"] [class~="bg-[#4e3d2b]/[0.70]"] { background-color: rgba(0,0,0,.70) !important; }
+    body[data-theme="dark"] [class~="text-[#111111]"] { color: var(--text) !important; }
+    body[data-theme="dark"] [class~="text-[#6b5c49]"],
+    body[data-theme="dark"] [class~="text-[#7a684e]"] { color: var(--muted) !important; }
+    body[data-theme="dark"] [class~="text-[#4e3d2b]"] { color: #bfbfbf !important; }
+    body[data-theme="dark"] [class~="text-[#efe2cf]"] { color: var(--bg) !important; }
+    body[data-theme="dark"] [class~="text-[#315f4f]"] { color: #3ea6ff !important; }
+    body[data-theme="dark"] [class~="text-[#9f3e37]"] { color: #ff8a8a !important; }
+    body[data-theme="dark"] [class~="border-[#c4b29a]"],
+    body[data-theme="dark"] [class~="border-[#cdb696]"],
+    body[data-theme="dark"] [class~="border-[#8b7357]"],
+    body[data-theme="dark"] [class~="border-[#aa9373]"],
+    body[data-theme="dark"] [class~="border-[#b8a283]"],
+    body[data-theme="dark"] [class~="border-[#b39a78]"],
+    body[data-theme="dark"] [class~="border-[#a58d6c]"],
+    body[data-theme="dark"] [class~="border-[#a99170]"] { border-color: var(--line) !important; }
+    body[data-theme="dark"] [class~="border-[#4e3d2b]/[0.10]"],
+    body[data-theme="dark"] [class~="border-[#4e3d2b]/[0.16]"],
+    body[data-theme="dark"] [class~="border-[#4e3d2b]/[0.18]"] { border-color: var(--line) !important; }
+    body[data-theme="dark"] [class~="from-[#efe2cf]"] {
+      --tw-gradient-from: var(--bg) var(--tw-gradient-from-position) !important;
+      --tw-gradient-to: rgba(17,17,17,0) var(--tw-gradient-to-position) !important;
+      --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+    }
+    body[data-theme="dark"] [class~="via-[#efe2cf]/95"] {
+      --tw-gradient-stops: var(--tw-gradient-from), rgba(17,17,17,.95) var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+    }
+    body[data-theme="dark"] [class~="to-[#efe2cf]"] {
+      --tw-gradient-to: var(--bg) var(--tw-gradient-to-position) !important;
+    }
+    body[data-theme="dark"] #playBtn {
+      background-color: var(--text) !important;
+      color: var(--bg) !important;
+    }
+    body[data-theme="dark"] svg { color: var(--text); }
+    body[data-theme="dark"] #playBtn svg { color: var(--bg); }
+    body[data-theme="dark"] svg[fill="#111111"] { fill: var(--text); }
+    body[data-theme="dark"] #status-text { color: var(--text); }
+    body[data-theme="dark"] #playerBg,
+    body[data-theme="dark"] #miniPlayerBg {
+      filter: blur(75px) brightness(.45);
+    }
+    body[data-theme="dark"] #tonearm path { stroke: #ddd; }
+    body[data-theme="dark"] #tonearm circle:first-of-type { fill: #ddd; stroke: #777; }
+    body[data-theme="dark"] #tonearm circle:nth-of-type(2) { fill: #333; }
+    body[data-theme="dark"] #tonearm rect:first-of-type { fill: #bbb; }
+    body[data-theme="dark"] #tonearm rect:nth-of-type(2) { fill: #444; }
+
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div id="homeView" class="view visible-view transition-soft">
+      <div class="h-full overflow-y-auto overflow-x-hidden scrollbar-hide">
+        <header class="sticky top-0 z-40">
+          <div class="flex items-center justify-between px-4 pt-6 pb-3 bg-[#efe2cf]">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full grid place-items-center overflow-hidden">
+                <img alt="Logo" src="https://media.discordapp.net/attachments/1199699191153299540/1496845876545458216/image.png?ex=69ee00db&is=69ecaf5b&hm=b6fb2ed370209328f07dba64cf6ef20e28b8bfea01b0a4d46e46d51013f10fb5&=&format=webp&quality=lossless&width=990&height=990" />
+              </div>
+              <div class="text-2xl tracking-[0.14em] text-[#111111]">MusikAI</div>
+            </div>
+        <button id="accountBtn" class="w-10 h-10 rounded-full overflow-hidden bg-[#8b7357] border border-[#c4b29a] hover:opacity-80 transition-opacity">
+          <img 
+            src="https://cdn.discordapp.com/avatars/663939202416771081/e1eab4127da7152ecc92bfc0e7f9a4a1.png?size=4096"
+            alt="Profile" 
+            class="w-full h-full object-cover"
+          />
+        </button>
+          </div>
+          <div class="relative pb-3 bg-[#efe2cf]">
+            <div class="px-2 pb-2 relative z-10 overflow-x-auto scrollbar-hide flex gap-2">
+              <button class="chip">Sillycore</button>
+              <button class="chip">Artcore</button>
+              <button class="chip">Shoegaze</button>
+              <button class="chip">Midwest Emo</button>
+              <button class="chip">Hardstyle</button>
+              <button class="chip">Instrumental</button>
+            </div>
+          </div>
+          <div class="h-10 w-full player-top-fade pointer-events-none"></div>
+        </header>
+
+        <main class="recommend-bg min-h-[calc(100%-96px)] pb-[170px]">
+          <div class="px-3 mb-2 text-[1.5rem] text-[#111111]">Listen Again:</div>
+          <section class="section py-4 mt-1">
+            <div class="overflow-x-auto scrollbar-hide px-1 pb-2">
+              <div id="listenAgainRow" class="flex gap-4 px-1"></div>
+            </div>
+          </section>
+
+          <div class="px-3 mb-2 text-[1.5rem] text-[#111111]">New Release:</div>
+          <section class="section py-4 mt-1">
+            <div class="overflow-x-auto scrollbar-hide px-1 pb-2">
+              <div id="newReleaseRow" class="flex gap-4 px-1"></div>
+            </div>
+          </section>
+
+          <div class="px-3 mb-2 text-[1.5rem] text-[#111111]">Listened to:</div>
+          <section class="section py-4 mt-1">
+            <div class="overflow-x-auto scrollbar-hide px-1 pb-2">
+              <div id="artistsRow" class="flex gap-6 px-1"></div>
+            </div>
+          </section>
+        </main>
+
+        
+          <div id="homeMiniPlayer" class="home-mini-player">
+            <div class="home-mini-player-shell rounded-t-[24px] overflow-hidden relative">
+              <div id="miniPlayerBg" class="absolute inset-0 transition-all duration-500 z-0"></div>
+              
+              <div class="absolute inset-0 bg-gradient-to-t from-[#efe2cf] to-transparent z-0 pointer-events-none"></div>
+              
+              <div class="px-2.5 pb-2 relative z-10">
+              <div class="flex items-center justify-between gap-0.5">
+                <button id="miniHeartBtn" class="${followClass} w-8 h-8 grid place-items-center text-[#111111]" aria-label="Heart"></button>
+                <button id="miniPrevBtn" class="w-8 h-8 grid place-items-center text-[#111111]" aria-label="Previous"></button>
+
+                <button id="miniVinylBtn" class="relative w-[76px] h-[76px] rounded-full grid place-items-center shrink-0 vinyl-spin" aria-label="Open player">
+                  <div class="absolute inset-0 rounded-full bg-[#d0b895] border-[5px] border-[#a58d6c] shadow-2xl"></div>
+                  <div class="absolute inset-[8px] rounded-full border border-[#a99170]"></div>
+                  <div class="absolute inset-[16px] rounded-full border border-[#a99170]"></div>
+                  <div class="absolute inset-[24px] rounded-full overflow-hidden bg-[#d6c2a6]">
+                    <div id="miniCoverArt" class="w-full h-full"></div>
+                  </div>
+                  <div class="absolute left-1/2 top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#efe2cf] border border-[#8b7357]"></div>
+                </button>
+
+                <button id="miniNextBtn" class="w-8 h-8 grid place-items-center text-[#111111]" aria-label="Next"></button>
+                <button id="miniFollowBtn" class="${followClass} w-8 h-8 grid place-items-center text-[#111111]" aria-label="Follow"></button>
+              </div>
+
+              <div class="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div id="miniArtist" class="min-w-0 text-left text-[.88rem] text-[#6b5c49] truncate">
+                  AZALI
+                </div>
+
+                <div class="flex justify-center">
+                  <div class="home-mini-title-fade w-[180px] overflow-hidden text-center text-[.95rem] leading-none font-medium text-[#111111]">
+                    <div id="miniTitleInner" class="title-marquee-inner whitespace-nowrap">
+                      abusing my ability
+                    </div>
+                  </div>
+                </div>
+
+                <div id="miniListened" class="min-w-0 text-right text-[.84rem] text-[#111111] whitespace-nowrap">
+                  100K+ Listened
+                </div>
+              </div>
+
+              <div class="mt-2 grid grid-cols-3 gap-1.5">
+                <button id="followPageBtn" class="h-8 grid place-items-center text-[#111111]" aria-label="Follow page"></button>
+                <button id="searchBtn" class="h-8 grid place-items-center text-[#111111]" aria-label="Search"></button>
+                <button id="createBtn" class="h-8 grid place-items-center text-[#111111]" aria-label="Create"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="searchView" class="view hidden-view transition-soft bg-[#efe2cf]">
+      <div class="absolute inset-0 search-shell"></div>
+      <div class="absolute inset-0 bg-gradient-to-b from-[#efe2cf] via-[#efe2cf]/95 to-transparent pointer-events-none"></div>
+      <div class="relative h-full overflow-y-auto overflow-x-hidden scrollbar-hide pb-[112px]">
+
+        <header class="sticky top-0 z-40">
+        <div class="flex items-center gap-3 px-4 pt-4 pb-3 bg-[#efe2cf]">
+
+             <div class="w-10 h-10 rounded-full grid place-items-center overflow-hidden">
+              <img alt="Logo" src="https://media.discordapp.net/attachments/927766197049655317/1417533429578203276/cat.png?ex=69eb8ce2&is=69ea3b62&hm=422d62a460da1e18d841d86fa97d435f7feb1c0c35d88a13a877ca4b0a531132&=&format=webp&quality=lossless&width=990&height=990" />
+            </div>        
+
+          <div class="flex-1 flex items-center gap-2">
+            <input id="searchBar" class="flex-1 rounded-full bg-[#d6c2a6] border border-[#4e3d2b]/[0.10] px-4 py-3 text-[#111111] outline-none placeholder:text-[#7a684e]" placeholder="Search title, artist, genre..." />
+
+            <button id="closeSearchBtn" class="w-10 h-10 flex items-center justify-center rounded-full text-[#111111] hover:bg-[#c4b29a] transition-colors" aria-label="Close search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="h-12 w-full player-top-fade pointer-events-none"></div>
+      </header>
+
+        <main class="relative px-4 pt-1">
+          <section class="space-y-4">
+            <div id="searchHistorySection" class="hidden">
+              <div class="mb-2 text-[#111111] text-[1.05rem]">Recently searched</div>
+              <div id="searchHistoryList" class="space-y-2"></div>
+            </div>
+
+            <div>
+              <div class="mb-2 text-[#111111] text-[1.05rem]">Genre</div>
+              <div id="searchGenreRow" class="flex gap-2 overflow-x-auto scrollbar-hide pb-1"></div>
+            </div>
+
+            <div>
+              <div class="mb-2 text-[#111111] text-[1.05rem]">Instrumental</div>
+              <div id="searchInstrumentRow" class="flex gap-2 overflow-x-auto scrollbar-hide pb-1"></div>
+            </div>
+
+            <div>
+              <div class="mb-2 text-[#111111] text-[1.05rem]">Songs</div>
+              <div id="searchSongList" class="space-y-2"></div>
+            </div>
+          </section>
+        </main>
+
+        <div class="fixed inset-x-0 bottom-0 z-20 pointer-events-none">
+          <div class="pb-5 flex justify-center pointer-events-none">
+            <button id="micBtn" class="w-16 h-16 rounded-full bg-[#cdb696] border border-[#4e3d2b]/[0.18] text-[#111111] grid place-items-center shadow-2xl transition-opacity duration-200 pointer-events-auto relative z-30">
+            </button>
+          </div>
+        </div>
+
+        <!-- The Blur Overlay that appears when searching -->
+      <div id="searchBlurOverlay" class="hidden">
+        <div class="voice-search-container">
+          <!-- The outer glowing ring that pulses -->
+          <div id="mic-pulse-ring"></div>
+          <!-- The actual microphone icon -->
+          <div id="active-mic-icon">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="#111111">
+              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+            </svg>
+          </div>
+          <p id="status-text">Listening...</p>
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div id="voiceResultView" class="view hidden-view transition-soft bg-[#efe2cf]">
+      <div class="absolute inset-0 bg-[#efe2cf]"></div>
+      <div class="absolute inset-0 bg-gradient-to-b from-[#efe2cf] via-[#efe2cf]/95 to-transparent pointer-events-none"></div>
+      <div class="relative h-full overflow-hidden">
+        <header class="sticky top-0 z-40 bg-[#efe2cf]">
+          <div class="flex items-center justify-between px-4 pt-4 pb-3">
+            <div class="flex items-center gap-3 min-w-0">
+             <div class="w-10 h-10 rounded-full grid place-items-center overflow-hidden">
+              <img alt="Logo" src="https://media.discordapp.net/attachments/927766197049655317/1417533429578203276/cat.png?ex=69eb8ce2&is=69ea3b62&hm=422d62a460da1e18d841d86fa97d435f7feb1c0c35d88a13a877ca4b0a531132&=&format=webp&quality=lossless&width=990&height=990" />
+            </div>        
+              <div class="text-[#111111] text-[1.1rem] tracking-[0.08em]">MusikAI</div>
+            </div>
+            <button id="voiceCloseBtn" class="w-10 h-10 grid place-items-center text-[#111111]" aria-label="Back to home"></button>
+          </div>
+          <div class="h-12 w-full player-top-fade pointer-events-none"></div>
+        </header>
+
+        <main class="h-[calc(100%-176px)] grid place-items-center px-6 text-center">
+          <div class="text-[#111111] text-[1.5rem] leading-tight max-w-[260px]">Sorry couldn't Identify the music</div>
+        </main>
+
+        <footer class="absolute inset-x-0 bottom-0 pb-6 text-center text-[#6b5c49] text-sm">
+          terms &amp; private policy
+        </footer>
+      </div>
+    </div>
+
+    <div id="playerView" class="view hidden-view transition-soft bg-[#efe2cf]">
+      <div id="playerBg" class="absolute inset-0 transition-all duration-500"></div>
+      <div class="absolute inset-0 pointer-events-none player-top-fade h-24"></div>
+      <div class="absolute inset-x-0 bottom-0 pointer-events-none player-bottom-fade h-20"></div>
+      <div class="relative h-full overflow-y-auto overflow-x-hidden scrollbar-hide">
+        <header class="sticky top-0 z-40">
+          <div class="flex items-center justify-between px-4 pt-4 pb-3 bg-[#efe2cf]">
+            <div class="w-12 h-12 rounded-full grid place-items-center overflow-hidden">
+              <img alt="Logo" src="https://media.discordapp.net/attachments/927766197049655317/1417533429578203276/cat.png?ex=69eb8ce2&is=69ea3b62&hm=422d62a460da1e18d841d86fa97d435f7feb1c0c35d88a13a877ca4b0a531132&=&format=webp&quality=lossless&width=990&height=990" />
+            </div>
+            <div class="flex items-center gap-1 rounded-full bg-[#d6c2a6] p-1 shadow-lg">
+              <button id="songTab" class="button-pill active px-5 py-2 rounded-full text-sm">Song</button>
+              <button id="lyricsTab" class="button-pill inactive px-5 py-2 rounded-full text-sm">Lyrics</button>
+            </div>
+            <button id="closePlayer" class="text-[#111111] w-10 h-10 grid place-items-center" aria-label="Close"></button>
+          </div>
+          <div class="h-10 w-full player-top-fade pointer-events-none"></div>
+        </header>
+
+        <main class="relative">
+          <section id="songView" class="px-4 pt-4 pb-2">
+            <div class="text-center relative">
+              <div class="flex items-center justify-between px-3 max-w-[340px] mx-auto">
+                <button class="text-[#4e3d2b] leading-none" aria-label="Dislike"><svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M2 10.5a1.5 1.5 0 0 1 3 0v6a1.5 1.5 0 0 1-3 0v-6Zm4.5-.17v5.43c0 1.05.59 2.01 1.53 2.48l.05.03A4 4 0 0 0 8.94 19h5.42a2 2 0 0 0 1.96-1.61l1.2-6A2 2 0 0 0 15.56 8H12V4a2 2 0 0 0-2-2 1 1 0 0 0-1 1v.67a4 4 0 0 1-.8 2.4L6.8 7.93a4 4 0 0 0-.8 2.4Z"/></svg></button>
+              <div class="min-w-0 w-full text-center">
+                <div class="mx-auto w-full max-w-[220px]">
+                  <div class="title-marquee text-[1.55rem] font-medium text-[#111111] leading-tight">
+                    <div id="trackTitleMarquee" class="title-marquee-inner">abusing my ability</div>
+                  </div>
+                  <div id="trackArtist" class="mt-1 text-[#6b5c49] text-[1.02rem]">AZALI</div>
+                </div>
+              </div>
+                <button class="text-[#4e3d2b] leading-none" aria-label="Like"><svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M22 13.5a1.5 1.5 0 0 0-3 0v6a1.5 1.5 0 0 0 3 0v-6Zm-4.5.17V8.24c0-1.05-.59-2.01-1.53-2.48l-.05-.03A4 4 0 0 0 15.06 5H9.64A2 2 0 0 0 7.68 6.61l-1.2 6A2 2 0 0 0 8.44 15H12v4a2 2 0 0 0 2 2 1 1 0 0 0 1-1v-.67a4 4 0 0 1 .8-2.4l1.4-1.87a4 4 0 0 0 .8-2.39Z"/></svg></button>
+              </div>
+
+              <div class="mt-5 flex items-center justify-center relative min-h-[320px]">
+                <div id="vinylWrap" class="relative w-[300px] h-[300px]">
+                  <div class="absolute inset-0 rounded-full bg-[#d0b895] shadow-2xl border-[8px] border-[#b8a283]"></div>
+                  <div class="absolute inset-[16px] rounded-full border border-[#b39a78]"></div>
+                  <div class="absolute inset-[34px] rounded-full border border-[#b39a78]"></div>
+                  <div class="absolute inset-[54px] rounded-full border border-[#b39a78]"></div>
+                  <div class="absolute inset-[72px] rounded-full border border-[#b39a78]"></div>
+                  <div class="absolute inset-[70px] rounded-full overflow-hidden shadow-inner bg-[#d6c2a6] flex items-center justify-center">
+                    <div id="coverArt" class="w-full h-full cover-note"></div>
+                  </div>
+                  <div class="absolute left-1/2 top-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#efe2cf] border border-[#8b7357]"></div>
+                </div>
+
+                <div id="tonearm" class="tonearm absolute -top-6 left-[calc(50%-20px)] w-[130px] h-[160px]">
+                  <svg viewBox="0 0 130 160" class="w-full h-full drop-shadow-2xl">
+                    <path d="M20 20 L87 82" stroke="#4e3d2b" stroke-width="8" stroke-linecap="round" />
+                    <path d="M87 82 L95 137" stroke="#4e3d2b" stroke-width="8" stroke-linecap="round" />
+                    <circle cx="20" cy="20" r="12" fill="#4e3d2b" stroke="#6b5c49" stroke-width="2" />
+                    <circle cx="20" cy="20" r="4" fill="#c4b29a" />
+                    <rect x="81" y="128" width="20" height="14" rx="3" transform="rotate(18 89 135)" fill="#8b7357" />
+                    <rect x="83" y="135" width="9" height="22" rx="2" transform="rotate(18 96.5 148)" fill="#b49b79" />
+                  </svg>
+                </div>
+              </div>
+
+              <div class="mt-2 px-2 flex items-center justify-between gap-2">
+                <div class="text-[#111111] text-[1rem] w-12 text-left" id="currentTime">0:42</div>
+                <div id="waveform" class="flex-1 h-14 flex items-center justify-between gap-[2px]"></div>
+                <div class="text-[#111111] text-[1rem] w-12 text-right" id="totalTime">2:10</div>
+              </div>
+
+              <div class="mt-4 flex items-center justify-between px-6 text-[#111111]">
+                <button id="shuffleBtn" class="opacity-90 w-6 h-6 grid place-items-center" aria-label="Shuffle"></button>
+                <button id="prevBtn" class="w-7 h-7 grid place-items-center" aria-label="Previous"></button>
+                <button id="playBtn" class="w-14 h-14 rounded-full bg-[#b49b79] text-[#efe2cf] grid place-items-center shadow-lg" aria-label="Play or pause">
+                  <span id="playIcon"></span>
+                  <span id="pauseIcon" class="hidden"></span>
+                </button>
+                <button id="nextBtn" class="w-7 h-7 grid place-items-center" aria-label="Next"></button>
+                <button id="repeatBtn" class="opacity-90 w-6 h-6 grid place-items-center" aria-label="Repeat"></button>
+              </div>
+            </div>
+          </section>
+
+          <section id="lyricsView" class="hidden px-4 pt-5 pb-2">
+            <div class="mx-auto max-w-[340px]">
+              <div class="text-[#6b5c49] text-sm mb-2" id="lyricsTrackMeta">AZALI · abusing my ability</div>
+              <div class="lyrics-scroll rounded-2xl bg-[#efe2cf]/55 border border-[#cdb696] p-4 leading-8 text-[#111111]">
+                <div id="lyricsText"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="px-4 pt-5 pb-8 relative z-0">
+            <div class="absolute inset-0 bg-gradient-to-b from-transparent to-[#efe2cf] -z-10 pointer-events-none"></div>
+            
+            <div class="absolute inset-x-0 top-full h-[100%] bg-[#efe2cf] -z-10 pointer-events-none"></div>
+
+            <div class="text-sm text-[#6b5c49] flex gap-4">
+              <span id="listenedCount">100,256 Listened</span>
+              <span id="dateText">Apr 28, 2024</span>
+            </div>
+            <div class="mt-3">
+              <div class="text-[#111111] mb-2 text-[1.05rem]">Genre:</div>
+              <div id="genreChips" class="flex flex-wrap gap-2"></div>
+            </div>
+            <div class="mt-4">
+              <div class="text-[#111111] mb-2 text-[1.05rem]" id="instrumentLabel">Instrumental:</div>
+              <div id="instrumentChips" class="flex flex-wrap gap-2"></div>
+            </div>
+          </section>
+
+          <section id="drawerWrapper" class="bg-gradient-to-b from-transparent to-[#efe2cf] pb-2 relative z-10 transition-all duration-500 ease-in-out -mt-[155px]">
+            <button id="drawerToggle" class="w-full flex justify-center py-2 text-[#6b5c49] hover:text-[#111111]" aria-label="Toggle drawer"></button>
+
+            <div class="flex">
+              <button id="upNextTab" class="button-pill active w-1/2 py-1 rounded-tl-3xl rounded-tr-xl text-sm tracking-[0.18em]">UP NEXT</button>
+              <button id="commentTab" class="button-pill inactive w-1/2 py-1 rounded-tr-3xl rounded-tl-xl text-sm tracking-[0.18em]">COMMENT</button>
+            </div>
+
+            <div id="drawerPanel" class="player-drawer drawer-expanded bg-[--panel2] relative min-h-[calc(100%+750px)]">
+              <div class="p-2 pt-3">
+                <div id="upNextPanel"></div>
+                <div id="commentPanel" class="hidden"></div>
+              </div>
+            </div>
+          </section>
+
+        </main>
+      </div>
+    </div>
+
+    <div id="followView" class="view hidden-view transition-soft bg-[#efe2cf]">
+      <div class="absolute inset-0 bg-[#efe2cf]"></div>
+      <div class="relative h-full overflow-y-auto overflow-x-hidden scrollbar-hide">
+        <header class="sticky top-0 z-40 bg-[#efe2cf]">
+          <div class="flex items-center justify-between px-4 pt-4 pb-3">
+            <button id="backHomeBtn" class="w-10 h-10 rounded-full border border-[#8b7357] grid place-items-center text-[#111111]" aria-label="Back to home"></button>
+            <div class="text-[#111111] text-[1.15rem] tracking-[0.08em]">Followed</div>
+            <div class="w-10 h-10"></div>
+          </div>
+          <div class="h-10 w-full player-top-fade pointer-events-none"></div>
+        </header>
+        <main class="px-4 pb-[240px]">
+          <div class="bg-[#d6c2a6] rounded-2xl overflow-hidden" id="followList"></div>
+        </main>
+      </div>
+    </div>
+
+    <div id="searchModal" class="hidden fixed inset-0 z-[70] bg-[#4e3d2b]/[0.70]">
+      <div class="absolute inset-x-0 bottom-0 bg-[#efe2cf] rounded-t-[28px] border-t border-[#cdb696] shadow-2xl">
+        <div class="px-4 pt-3 pb-4">
+          <div class="flex items-center justify-between">
+            <div class="text-[#111111] text-[1.05rem]">Search</div>
+            <button id="closeSearchBtn" class="w-10 h-10 grid place-items-center text-[#111111]" aria-label="Close search"></button>
+          </div>
+          <div class="mt-3">
+            <input id="searchInput" class="w-full rounded-2xl bg-[#d6c2a6] px-4 py-3 text-[#111111] outline-none border border-[#c4b29a] placeholder:text-[#7a684e]" placeholder="Search title, artist, genre..." />
+          </div>
+          <div id="searchResults" class="mt-3 max-h-[48dvh] overflow-auto scrollbar-hide space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="createModal" class="hidden fixed inset-0 z-[70] bg-[#4e3d2b]/[0.70]">
+      <div class="absolute inset-x-0 bottom-0 bg-[#efe2cf] rounded-t-[28px] border-t border-[#cdb696] shadow-2xl">
+        <div class="px-4 pt-3 pb-4">
+          <div class="flex items-center justify-between">
+            <div class="text-[#111111] text-[1.05rem]">Create / Upload</div>
+            <button id="closeCreateBtn" class="w-10 h-10 grid place-items-center text-[#111111]" aria-label="Close create"></button>
+          </div>
+          <div class="mt-3 space-y-2">
+            <button class="w-full rounded-2xl bg-[#d6c2a6] px-4 py-4 text-left text-[#111111] border border-[#c4b29a]">Upload music</button>
+            <button class="w-full rounded-2xl bg-[#d6c2a6] px-4 py-4 text-left text-[#111111] border border-[#c4b29a]">Create playlist</button>
+            <button class="w-full rounded-2xl bg-[#d6c2a6] px-4 py-4 text-left text-[#111111] border border-[#c4b29a]">Start a post</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="accountModal" class="hidden absolute inset-0 z-[80]">
+      <div class="account-backdrop absolute inset-0"></div>
+      <div class="absolute inset-x-0 top-0 h-24 account-header-fade pointer-events-none"></div>
+      <div class="absolute inset-x-0 bottom-0 h-24 account-list-fade-top pointer-events-none"></div>
+
+      <div class="absolute inset-x-0 bottom-0 max-h-[92%] account-panel rounded-t-[30px] overflow-hidden">
+        <div class="relative">
+          <div class="absolute inset-x-0 top-0 h-16 account-header-fade pointer-events-none"></div>
+          <div class="flex items-center justify-between px-4 pt-4 pb-3 relative z-10">
+            <button id="accountCloseBtn" class="w-10 h-10 grid place-items-center text-[#111111]" aria-label="Close account menu"></button>
+            <div class="text-[#111111] text-[1.05rem] tracking-[0.06em]">Account</div>
+            <div class="w-10 h-10"></div>
+          </div>
+
+          <div id="accountMenuView" class="px-4 pb-4 overflow-y-auto scrollbar-hide" style="max-height: calc(92dvh - 68px);">
+            <button id="manageAccountBtn" class="account-item w-full rounded-[22px] p-3 flex items-center gap-3 text-left">
+              <div class="w-14 h-14 rounded-full overflow-hidden shrink-0 bg-[#8b7357] border border-[#4e3d2b]/[0.18]">
+                <img
+                  src="https://cdn.discordapp.com/avatars/663939202416771081/e1eab4127da7152ecc92bfc0e7f9a4a1.png?size=4096"
+                  alt="Profile"
+                  class="w-full h-full object-cover"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="text-[#111111] text-[1.02rem] font-semibold truncate">Anzu</div>
+                <div class="text-[#6b5c49] text-[.95rem] truncate">@AnzuIGN</div>
+                <div class="mt-1 text-[#315f4f] text-[.96rem]">Manage your Google Account</div>
+              </div>
+              <div class="text-[#111111] account-arrow" aria-hidden="true">›</div>
+            </button>
+
+            <div class="mt-3 space-y-2">
+              <button class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left" data-account-page="channel">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">◫</div>
+                  <span class="text-[#111111] text-[1rem]">Your channel</span>
+                </div>
+                <div class="text-[#111111] account-arrow">›</div>
+              </button>
+
+              <button class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left" data-account-page="switch">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">⇄</div>
+                  <span class="text-[#111111] text-[1rem]">Switch account</span>
+                </div>
+                <div class="text-[#111111] account-arrow">›</div>
+              </button>
+
+              <button class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left" data-account-signout>
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">⇱</div>
+                  <span class="text-[#111111] text-[1rem]">Sign out</span>
+                </div>
+                <div class="text-[#111111] account-arrow">›</div>
+              </button>
+
+              <button class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left" data-account-page="settings">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">
+                    <!-- Tailwind Gear Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                      <path d="M12.22 2h-.44a2 2 0 0 0-2 2 2 2 0 0 1-2 2 2 2 0 0 0-2 2 2 2 0 0 1-2 2 2 2 0 0 0-2 2v.44a2 2 0 0 0 2 2 2 2 0 0 1 2 2 2 2 0 0 0 2 2 2 2 0 0 1 2 2 2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2 2 2 0 0 1 2-2 2 2 0 0 0 2-2 2 2 0 0 1 2-2 2 2 0 0 0 2-2v-.44a2 2 0 0 0-2-2 2 2 0 0 1-2-2 2 2 0 0 0-2-2 2 2 0 0 1-2-2 2 2 0 0 0-2-2z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </div>
+                  <span class="text-[#111111] text-[1rem]">Settings</span>
+                </div>
+                <div class="text-[#111111] account-arrow">›</div>
+              </button>
+              
+            <div class="account-item w-full rounded-[18px] px-4 py-2 flex items-center justify-between text-left">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                  </svg>
+                </div>
+                <span class="text-[#111111] text-[1rem]">Zoom</span>
+              </div>
+              
+              <div class="flex items-center gap-1">
+                <button id="zoomOutBtn" class="w-8 h-8 rounded-full bg-[#4e3d2b]/[0.10] border border-[#4e3d2b]/[0.10] grid place-items-center text-[#111111] hover:bg-[#4e3d2b]/[0.16] transition-colors" aria-label="Decrease Zoom">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4"><path d="M5 12h14"/></svg>
+                </button>
+                <span id="zoomLevelDisplay" class="text-[#111111] text-[.95rem] w-12 text-center font-medium">75%</span>
+                <button id="zoomInBtn" class="w-8 h-8 rounded-full bg-[#4e3d2b]/[0.10] border border-[#4e3d2b]/[0.10] grid place-items-center text-[#111111] hover:bg-[#4e3d2b]/[0.16] transition-colors" aria-label="Increase Zoom">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-4 h-4"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left cursor-pointer" id="themeToggleBtn" role="switch" tabindex="0" aria-checked="true">
+              <div class="flex items-center gap-3 min-w-0">
+                <div id="themeIcon" class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                </div>
+                <span id="themeText" class="text-[#111111] text-[1rem]">Dark</span>
+              </div>
+              
+              <div id="themeSwitchBg" class="w-12 h-6 rounded-full bg-[#8b7357]/[0.35] relative transition-colors duration-300 flex items-center">
+                <div id="themeSwitchKnob" class="absolute left-1 w-4 h-4 bg-[#111111] rounded-full transition-transform duration-300 transform translate-x-0"></div>
+              </div>
+            </div>
+
+              <button class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left" data-account-page="history">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">↺</div>
+                  <span class="text-[#111111] text-[1rem]">History</span>
+                </div>
+                <div class="text-[#111111] account-arrow">›</div>
+              </button>
+
+              <button class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left" data-account-page="downloads">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">↓</div>
+                  <span class="text-[#111111] text-[1rem]">Downloads</span>
+                </div>
+                <div class="text-[#111111] account-arrow">›</div>
+              </button>
+
+              <button class="account-item w-full rounded-[18px] px-4 py-3 flex items-center justify-between text-left" data-account-page="help">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 grid place-items-center text-[#111111]" aria-hidden="true">?</div>
+                  <span class="text-[#111111] text-[1rem]">Help</span>
+                </div>
+                <div class="text-[#111111] account-arrow">›</div>
+              </button>
+            </div>
+
+            <button class="mt-3 w-full text-left px-4 py-3 rounded-[18px] bg-transparent text-[#6b5c49] border border-transparent">
+              Terms &amp; privacy policy
+            </button>
+          </div>
+
+          <div id="accountPageView" class="hidden px-4 pb-4 overflow-y-auto scrollbar-hide" style="max-height: calc(92dvh - 68px);">
+            <div class="flex items-center justify-between py-1">
+              <div class="w-10 h-10"></div>
+              <div id="accountPageTitle" class="text-[#111111] text-[1.05rem] tracking-[0.05em]"></div>
+              <div class="flex items-center gap-2">
+                <button class="w-9 h-9 rounded-full bg-[#4e3d2b]/[0.10] border border-[#4e3d2b]/[0.10] grid place-items-center text-[#111111]" aria-label="Right action 1">⋯</button>
+                <button class="w-9 h-9 rounded-full bg-[#4e3d2b]/[0.10] border border-[#4e3d2b]/[0.10] grid place-items-center text-[#111111]" aria-label="Right action 2">⌁</button>
+              </div>
+            </div>
+
+            <div class="mt-3 rounded-[24px] bg-[#4e3d2b]/[0.08] border border-[#4e3d2b]/[0.10] overflow-hidden">
+              <div id="accountPageContent"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="signOutModal" class="hidden absolute inset-0 z-[81]">
+      <div class="account-backdrop absolute inset-0"></div>
+      <div class="absolute inset-0 grid place-items-center px-5">
+        <div class="w-full max-w-[330px] rounded-[24px] bg-[#efe2cf]/92 backdrop-blur-2xl border border-[#4e3d2b]/[0.16] shadow-2xl overflow-hidden">
+          <div class="p-4">
+            <div class="text-[#111111] text-[1.05rem] font-semibold">Sign out?</div>
+            <div class="mt-2 text-[#6b5c49] text-[.96rem] leading-6">
+              This will close the current account session on this device.
+            </div>
+          </div>
+          <div class="grid grid-cols-2 border-t border-[#4e3d2b]/[0.16]">
+            <button id="cancelSignOutBtn" class="py-4 text-[#111111] border-r border-[#4e3d2b]/[0.16]">Cancel</button>
+            <button id="confirmSignOutBtn" class="py-4 text-[#9f3e37]">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+const getThemeFromImage = (url) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = url;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 50; canvas.height = 50;
+        ctx.drawImage(img, 0, 0, 50, 50);
+        const data = ctx.getImageData(0, 0, 50, 50).data;
+        let r = 0, g = 0, b = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i]; g += data[i+1]; b += data[i+2];
+        }
+        const count = data.length / 4;
+        const rgb = [Math.floor(r/count), Math.floor(g/count), Math.floor(b/count)];
+        resolve({
+          primary: `rgb(${rgb.join(',')})`,
+          muted: `rgb(${rgb.map(c => Math.floor(c*0.7)).join(',')})`,
+          dark: `rgb(${rgb.map(c => Math.floor(c*0.3)).join(',')})`
+        });
+      };
+      img.onerror = () => resolve({ primary: '#8b7357', muted: '#6b5c49', dark: '#4e3d2b' });
+    });
+  };
+  
+  const tracks = [
+    {
+      title: 'abusing my ability to make music',
+      artist: 'AZALI',
+      duration: 130,
+      listened: '100K+ Listened',
+      date: 'Apr 28, 2024',
+      theme: ['#8b7357', '#6b5c49', '#4e3d2b'],
+      cover: {
+        bg: '#8b7357',
+        png: 'https://i.scdn.co/image/ab67616d0000b2732ddb2088128d9e3dddd9d045'
+      },
+      genres: ['Sillycore', 'Artcore', 'Hardstyle', 'Instrumental'],
+      instruments: ['Synth', 'Drum Machine'],
+      lyrics: [
+        '*MUSIC*',
+      ],
+      upNext: [
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#b8a283' },
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#aa9373' },
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#bba486' },
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#a99170' },
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#b49b79' }
+      ],
+      comments: [
+        { name: 'MusicFan99', likes: 42, dislikes: 0, text: 'The mix on this track is absolutely insane. That drop around 0:42 completely caught me off guard!', replies: 2, avatar: '#b19a7a' },
+        { name: 'AudioNerd', likes: 15, dislikes: 1, text: 'Can anyone tell me what synth they used for the lead melody? It sounds so unique.', replies: 5, avatar: '#a48d6c' }
+      ]
+    },
+    {
+      title: 'Blight',
+      artist: 'Zeruel',
+      duration: 164,
+      listened: '93.4K+ Listened',
+      date: 'May 9, 2024',
+      theme: ['#685745', '#6b5c49', '#8b7357'],
+      cover: {
+        bg: '#685745',
+        png: 'https://i.scdn.co/image/ab67616d0000b2733948fe16f50b0907eefc0a78'
+      },
+      genres: ['Shoegaze', 'Metalcore', 'Ambient', 'Alternative Metal'],
+      instruments: ['Guitar', 'Drums','Bass'],
+      lyrics: [
+      'I wonder why',
+      'Why you would deface me yet',
+      'Wont free me from your gaze?',
+      'The blade you eat from cuts me',
+      'Deep inside and pulls my skin away',
+      ],
+      upNext: [
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#b6a081' },
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#a99170' },
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#b8a283' }
+      ],
+      comments: [
+        { name: 'NoiseRoom', likes: 22, dislikes: 0, text: 'This feels like standing under a broken streetlight at 2AM.', replies: 1, avatar: '#9f8b70' }
+      ]
+    },
+    {
+      title: 'Blank',
+      artist: 'Glare',
+      duration: 148,
+      listened: '45K+ Listened',
+      date: 'Jun 1, 2024',
+      theme: ['#8b7357', '#6b5c49', '#685745'],
+      cover: {
+        bg: '#8b7357',
+        png: 'https://f4.bcbits.com/img/a0275188149_16.jpg'
+      },
+      genres: ['Shoegaze', 'Rock', 'Alternative', 'Indie'],
+      instruments: ['Drums', 'Bass','Guitar'],
+      lyrics: [
+'Eternal sadness fills you',
+'Keep it inside, you do',
+'Exercise your mind til you',
+'Run out of things to do',
+      ],
+      upNext: [
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#aa9373' },
+        { title: 'Title', artist: 'Music Artist', duration: '2:00', cover: '#cdb696' }
+      ],
+      comments: [
+        { name: 'TapeDeck', likes: 9, dislikes: 0, text: 'The texture on this one is unreal.', replies: 0, avatar: '#a48d6c' }
+      ]
+    }
+  ];
+
+  const listeners = [
+    { name: 'Zeruel', followers: '93.4k+', png: 'https://cdn-images.dzcdn.net/images/artist/0c33ac33946d7954e94d7ee4616b099d/1900x1900-000000-81-0-0.jpg' },
+    { name: 'Glare', followers: '200k+', png: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCwKp9stHYdOnDFSvgIOZepugBBeIP7pfkag&s' },
+    { name: 'Wisp', followers: '45k+', png: 'ihttps://upload.wikimedia.org/wikipedia/commons/4/4a/Wisp_052224_vin_eiamvuthikorn.jpg' },
+    { name: 'AZALI', followers: '68k+', png: 'https://yt3.googleusercontent.com/FZwiQ01P3-qC2RROp9_c03RkPr3U-BPLoIrResalvm5AdcY8hLoMLtzYbnXJB54wSuQOuTeN=s900-c-k-c0x00ffffff-no-rj' }
+  ];
+
+  const THEMES = {
+    dark: {
+      label: 'Dark',
+      text: '#ccc',
+      muted: '#888',
+      bg: '#111',
+      outer: '#000',
+      panel: '#222',
+      panel2: '#333',
+      panelSoft: '#171717',
+      chip: '#444',
+      chipHover: '#555',
+      switchBg: '#333',
+      knob: '#ccc'
+    },
+    light: {
+      label: 'Light',
+      text: '#111111',
+      muted: '#6b5c49',
+      bg: '#efe2cf',
+      outer: '#4e3d2b',
+      panel: '#d6c2a6',
+      panel2: '#c4b29a',
+      panelSoft: '#e1cfb2',
+      chip: '#8b7357',
+      chipHover: '#c4b29a',
+      switchBg: '#c4b29a',
+      knob: '#efe2cf'
+    }
+  };
+
+  const getInitialTheme = () => {
+    try {
+      return localStorage.getItem('musikAITheme') === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  };
+
+  const state = {
+    view: 'home',
+    theme: getInitialTheme(),
+    trackIndex: 0,
+    playing: false,
+    progress: 42,
+    timer: null,
+    shuffle: false,
+    repeat: false,
+    activeDrawer: 'upnext',
+    lyrics: false,
+    favorites: new Set([0]),
+    following: new Set([0, 2]),
+    votes: Array(tracks.length).fill(0),
+    miniAnimating: false,
+    lastRenderedTrackIndex: null,
+    coverRenderToken: 0,
+    accountPage: 'menu',
+    searchQuery: '',
+    searchFilters: [],
+    searchHistory: [],
+    voiceActive: false,
+    zoom: 75,
+  };
+
+  const els = {
+    homeView: document.getElementById('homeView'),
+    playerView: document.getElementById('playerView'),
+    followView: document.getElementById('followView'),
+    homeMiniPlayer: document.getElementById('homeMiniPlayer'),
+    playerBg: document.getElementById('playerBg'),
+    closePlayer: document.getElementById('closePlayer'),
+    songTab: document.getElementById('songTab'),
+    lyricsTab: document.getElementById('lyricsTab'),
+    songView: document.getElementById('songView'),
+    lyricsView: document.getElementById('lyricsView'),
+    currentTime: document.getElementById('currentTime'),
+    totalTime: document.getElementById('totalTime'),
+    waveform: document.getElementById('waveform'),
+    playBtn: document.getElementById('playBtn'),
+    playIcon: document.getElementById('playIcon'),
+    pauseIcon: document.getElementById('pauseIcon'),
+    tonearm: document.getElementById('tonearm'),
+    vinylWrap: document.getElementById('vinylWrap'),
+    trackTitleMarquee: document.getElementById('trackTitleMarquee'),
+    trackArtist: document.getElementById('trackArtist'),
+    coverArt: document.getElementById('coverArt'),
+    listenedCount: document.getElementById('listenedCount'),
+    dateText: document.getElementById('dateText'),
+    genreChips: document.getElementById('genreChips'),
+    instrumentChips: document.getElementById('instrumentChips'),
+    lyricsText: document.getElementById('lyricsText'),
+    lyricsTrackMeta: document.getElementById('lyricsTrackMeta'),
+    upNextTab: document.getElementById('upNextTab'),
+    commentTab: document.getElementById('commentTab'),
+    upNextPanel: document.getElementById('upNextPanel'),
+    commentPanel: document.getElementById('commentPanel'),
+    drawerPanel: document.getElementById('drawerPanel'),
+    drawerToggle: document.getElementById('drawerToggle'),
+    drawerWrapper: document.getElementById('drawerWrapper'),
+    shuffleBtn: document.getElementById('shuffleBtn'),
+    prevBtn: document.getElementById('prevBtn'),
+    nextBtn: document.getElementById('nextBtn'),
+    repeatBtn: document.getElementById('repeatBtn'),
+    listenAgainRow: document.getElementById('listenAgainRow'),
+    newReleaseRow: document.getElementById('newReleaseRow'),
+    artistsRow: document.getElementById('artistsRow'),
+    miniTitleInner: document.getElementById('miniTitleInner'),
+    miniArtist: document.getElementById('miniArtist'),
+    miniListened: document.getElementById('miniListened'),
+    miniCoverArt: document.getElementById('miniCoverArt'),
+    miniHeartBtn: document.getElementById('miniHeartBtn'),
+    miniPrevBtn: document.getElementById('miniPrevBtn'),
+    miniVinylBtn: document.getElementById('miniVinylBtn'),
+    miniNextBtn: document.getElementById('miniNextBtn'),
+    miniFollowBtn: document.getElementById('miniFollowBtn'),
+    followPageBtn: document.getElementById('followPageBtn'),
+    searchBtn: document.getElementById('searchBtn'),
+    createBtn: document.getElementById('createBtn'),
+    backHomeBtn: document.getElementById('backHomeBtn'),
+    followList: document.getElementById('followList'),
+    searchModal: document.getElementById('searchModal'),
+    createModal: document.getElementById('createModal'),
+    closeSearchBtn: document.getElementById('closeSearchBtn'),
+    closeCreateBtn: document.getElementById('closeCreateBtn'),
+    searchInput: document.getElementById('searchInput'),
+    searchResults: document.getElementById('searchResults'),
+    searchView: document.getElementById('searchView'),
+    voiceResultView: document.getElementById('voiceResultView'),
+    searchBar: document.getElementById('searchBar'),
+    searchGenreRow: document.getElementById('searchGenreRow'),
+    searchInstrumentRow: document.getElementById('searchInstrumentRow'),
+    searchSongList: document.getElementById('searchSongList'),
+    searchHistorySection: document.getElementById('searchHistorySection'),
+    searchHistoryList: document.getElementById('searchHistoryList'),
+    micBtn: document.getElementById('micBtn'),
+    searchBlurOverlay: document.getElementById('searchBlurOverlay'),
+    voiceCloseBtn: document.getElementById('voiceCloseBtn'),
+    accountBtn: document.getElementById('accountBtn'),
+    accountModal: document.getElementById('accountModal'),
+    accountCloseBtn: document.getElementById('accountCloseBtn'),
+    accountMenuView: document.getElementById('accountMenuView'),
+    accountPageView: document.getElementById('accountPageView'),
+    accountPageTitle: document.getElementById('accountPageTitle'),
+    accountPageContent: document.getElementById('accountPageContent'),
+    manageAccountBtn: document.getElementById('manageAccountBtn'),
+    signOutModal: document.getElementById('signOutModal'),
+    cancelSignOutBtn: document.getElementById('cancelSignOutBtn'),
+    confirmSignOutBtn: document.getElementById('confirmSignOutBtn'),
+    appShell: document.querySelector('.app-shell'),
+    zoomInBtn: document.getElementById('zoomInBtn'),
+    zoomOutBtn: document.getElementById('zoomOutBtn'),
+    zoomLevelDisplay: document.getElementById('zoomLevelDisplay'),
+    themeToggleBtn: document.getElementById('themeToggleBtn'),
+    themeIcon: document.getElementById('themeIcon'),
+    themeText: document.getElementById('themeText'),
+    themeSwitchBg: document.getElementById('themeSwitchBg'),
+    themeSwitchKnob: document.getElementById('themeSwitchKnob'),
+  };
+
+const ICONS = {
+  xMark: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><path d="M6 6l12 12M18 6 6 18"/></svg>`,
+  chevronDown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8"><path d="m6 9 6 6 6-6"/></svg>`,
+  chevronUp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8"><path d="m18 15-6-6-6 6"/></svg>`,
+  chevronLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><path d="m15 18-6-6 6-6"/></svg>`,
+  chevronRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><path d="m9 6 6 6-6 6"/></svg>`,
+  play: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path d="M8 5v14l11-7-11-7z"/></svg>`,
+  pause: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z"/></svg>`,
+  shuffle: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M16 3h5v5"/><path d="M4 20l5-5"/><path d="M4 4h4l12 12"/><path d="M16 21h5v-5"/><path d="M19 3l2 2"/><path d="M9 15l2 2"/></svg>`,
+  repeat: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+  heartOutline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8"><path d="M20.8 4.6c-1.5-1.3-3.8-1.2-5.2.3L15 5.6l-.7-.7c-1.4-1.5-3.6-1.6-5.2-.3-1.8 1.5-1.9 4.2-.3 5.8L15 18l6.2-6.5c1.6-1.7 1.5-4.3-.4-5.9z"/></svg>`,
+  heartFill: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M20.8 4.6c-1.5-1.3-3.8-1.2-5.2.3L15 5.6l-.7-.7c-1.4-1.5-3.6-1.6-5.2-.3-1.8 1.5-1.9 4.2-.3 5.8L15 18l6.2-6.5c1.6-1.7 1.5-4.3-.4-5.9z"/></svg>`,
+  bookmarkOutline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5z"/></svg>`,
+  bookmarkFill: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21l-6-4-6 4V4.5z"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+  arrowUpRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>`,
+  mic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 12a7 7 0 0 1-14 0"/><path d="M12 19v3"/></svg>`,
+  plusCircle: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>`,
+  userPlusOutline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8"><path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="8" r="3"/><path d="M19 8v6M16 11h6"/></svg>`,
+  userPlusFill: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="8" r="3"/><path d="M19 8v6M16 11h6"/></svg>`,
+  thumbsUpOutline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><path d="M7 11v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3z"/><path d="M7 11l4-8a3 3 0 0 1 2.8 4v4h5a2 2 0 0 1 2 2l-1 5a3 3 0 0 1-3 2H7"/></svg>`,
+  thumbsUpFill: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path d="M7 11v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3z"/><path d="M7 11l4-8a3 3 0 0 1 2.8 4v4h5a2 2 0 0 1 2 2l-1 5a3 3 0 0 1-3 2H7"/></svg>`,
+  thumbsDownOutline: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><path d="M17 13V3h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-3z"/><path d="M17 13l-4 8a3 3 0 0 1-2.8-4v-4H5a2 2 0 0 1-2-2l1-5a3 3 0 0 1 3-2h10"/></svg>`,
+  thumbsDownFill: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path d="M17 13V3h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-3z"/><path d="M17 13l-4 8a3 3 0 0 1-2.8-4v-4H5a2 2 0 0 1-2-2l1-5a3 3 0 0 1 3-2h10"/></svg>`,
+  back: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M15 18 9 12l6-6"/></svg>`
+};
+
+  const formatTime = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  const hexToRgb = (hex) => {
+    const h = hex.replace('#', '');
+    const n = parseInt(h.length === 3 ? h.split('').map(ch => ch + ch).join('') : h, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  };
+  const rgba = (hex, alpha) => {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  const getTrack = () => tracks[state.trackIndex];
+  const coverBox = (hex) => `<div class="w-full h-full" style="background:${hex};"></div>`;
+  const avatarCircle = (hex) => `<div class="w-full h-full rounded-full" style="background:${hex};"></div>`;
+  const iconFor = (active, outline, filled) => active ? filled : outline;
+  const tapIntent = {
+    x: 0,
+    y: 0,
+    time: 0,
+    scrollEl: null,
+    scrollTop: 0,
+    scrollLeft: 0
+  };
+  const getScrollContainer = (el) => {
+    let node = el;
+    while (node && node !== document.body && node !== document.documentElement) {
+      const style = getComputedStyle(node);
+      if (/(auto|scroll)/.test(`${style.overflow}${style.overflowX}${style.overflowY}`)) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  };
+  document.addEventListener('pointerdown', (e) => {
+    const scrollEl = getScrollContainer(e.target);
+    tapIntent.x = e.clientX;
+    tapIntent.y = e.clientY;
+    tapIntent.time = performance.now();
+    tapIntent.scrollEl = scrollEl;
+    tapIntent.scrollTop = scrollEl.scrollTop;
+    tapIntent.scrollLeft = scrollEl.scrollLeft;
+  }, { capture: true, passive: true });
+  const shouldIgnorePlayerOpen = (e) => {
+    if (!e || e.detail === 0 || !tapIntent.time) return false;
+    if (performance.now() - tapIntent.time > 900) return false;
+    const dx = Math.abs(e.clientX - tapIntent.x);
+    const dy = Math.abs(e.clientY - tapIntent.y);
+    const scrollEl = tapIntent.scrollEl;
+    const scrolled = scrollEl && (
+      Math.abs(scrollEl.scrollTop - tapIntent.scrollTop) > 3 ||
+      Math.abs(scrollEl.scrollLeft - tapIntent.scrollLeft) > 3
+    );
+    return dx > 10 || dy > 10 || scrolled;
+  };
+  const openPlayerFromClick = (e, index) => {
+    if (shouldIgnorePlayerOpen(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    openPlayer(index);
+  };
+  const THEME_ICONS = {
+    dark: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8Z"/></svg>`,
+    light: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
+  };
+  const getThemeColors = () => THEMES[state.theme] || THEMES.dark;
+
+  const applyTheme = () => {
+    const theme = getThemeColors();
+    document.body.dataset.theme = state.theme;
+    Object.entries(theme).forEach(([key, value]) => {
+      if (key !== 'label') document.documentElement.style.setProperty(`--${key}`, value);
+    });
+
+    if (els.themeText) els.themeText.textContent = theme.label;
+    if (els.themeIcon) els.themeIcon.innerHTML = THEME_ICONS[state.theme] || THEME_ICONS.dark;
+    if (els.themeToggleBtn) els.themeToggleBtn.setAttribute('aria-checked', String(state.theme === 'light'));
+    if (els.themeSwitchBg) els.themeSwitchBg.style.backgroundColor = theme.switchBg;
+    if (els.themeSwitchKnob) {
+      els.themeSwitchKnob.style.backgroundColor = theme.knob;
+      els.themeSwitchKnob.style.transform = state.theme === 'light' ? 'translateX(24px)' : 'translateX(0)';
+    }
+  };
+
+  const toggleTheme = () => {
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    try {
+      localStorage.setItem('musikAITheme', state.theme);
+    } catch {}
+    state.lastRenderedTrackIndex = null;
+    state.coverRenderToken++;
+    applyTheme();
+    renderAll();
+  };
+
+  const makeWave = () => {
+    els.waveform.innerHTML = '';
+    const count = 52;
+    for (let i = 0; i < count; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'wave-bar';
+      const peak = (i % 9 === 0) ? 0.88 : (i % 3 === 0 ? 0.62 : 0.36 + Math.random() * 0.22);
+      bar.style.height = `${Math.max(18, Math.round(peak * 42))}px`;
+      bar.addEventListener('click', () => {
+        const track = getTrack();
+        state.progress = Math.round((i / (count - 1)) * track.duration);
+        renderPlayer();
+      });
+      els.waveform.appendChild(bar);
+    }
+  };
+
+  const setView = (view) => {
+    state.view = view;
+    const isPlayer = view === 'player';
+    const isFollow = view === 'follow';
+    const isSearch = view === 'search';
+    const isCreate = view === 'create';
+    const isVoice = view === 'voice';
+
+    els.homeView.classList.toggle('hidden-view', isPlayer || isFollow);
+    els.homeView.classList.toggle('visible-view', !(isPlayer || isFollow));
+    els.playerView.classList.toggle('hidden-view', !isPlayer);
+    els.playerView.classList.toggle('visible-view', isPlayer);
+    els.followView.classList.toggle('hidden-view', !isFollow);
+    els.followView.classList.toggle('visible-view', isFollow);
+    els.homeMiniPlayer.classList.toggle('hidden', isPlayer || isSearch || isVoice);
+    els.searchModal.classList.toggle('hidden', true);
+    els.createModal.classList.toggle('hidden', !isCreate);
+    els.searchView.classList.toggle('hidden-view', !isSearch);
+    els.searchView.classList.toggle('visible-view', isSearch);
+    els.voiceResultView.classList.toggle('hidden-view', !isVoice);
+    els.voiceResultView.classList.toggle('visible-view', isVoice);
+
+    if (isPlayer || isFollow || isSearch || isCreate || isVoice) {
+      stopTimer();
+    }
+    if (isPlayer) window.scrollTo(0, 0);
+    if (isFollow) els.followView.scrollTo(0, 0);
+    if (isSearch) {
+      setTimeout(() => els.searchBar?.focus(), 0);
+      renderSearchPage();
+    } else if (els.micBtn) {
+      els.micBtn.classList.remove('pointer-events-auto');
+      els.micBtn.classList.add('pointer-events-none');
+      els.micBtn.setAttribute('aria-hidden', 'true');
+    }
+    if (isVoice) renderVoiceResultPage();
+  };
+
+
+  const createCoverMarkup = (track) =>
+    `<img alt="cover" src="${track.cover.png}" class="w-full h-full object-cover" loading="eager" decoding="async" draggable="false" />`;
+
+  const createAvatarMarkup = (person) =>
+    `<img alt="${person.name}" src="${person.png}" class="w-full h-full object-cover object-center block" />`;
+
+  const createChip = (label) => `<a href="#" class="chip">${label}</a>`;
+
+  const renderMiniPlayer = () => {
+    const track = getTrack();
+    const theme = getThemeColors();
+    const trackChanged = state.lastRenderedTrackIndex !== state.trackIndex;
+
+    els.miniTitleInner.textContent = track.title;
+    els.miniArtist.textContent = track.artist;
+    els.miniListened.textContent = track.listened;
+
+    if (trackChanged || !els.miniCoverArt.firstElementChild) {
+      els.miniCoverArt.innerHTML = createCoverMarkup(track);
+    }
+
+    els.miniHeartBtn.innerHTML = iconFor(state.favorites.has(state.trackIndex), ICONS.heartOutline, ICONS.heartFill);
+    els.miniFollowBtn.innerHTML = iconFor(state.following.has(state.trackIndex), ICONS.userPlusOutline, ICONS.userPlusFill);
+    els.followPageBtn.innerHTML = iconFor(false, ICONS.bookmarkOutline, ICONS.bookmarkFill);
+    els.searchBtn.innerHTML = ICONS.search;
+    els.createBtn.innerHTML = ICONS.plusCircle;
+    els.miniPrevBtn.innerHTML = ICONS.chevronLeft;
+    els.miniNextBtn.innerHTML = ICONS.chevronRight;
+    els.miniVinylBtn.style.background = `linear-gradient(135deg, ${rgba(theme.chip, .35)}, ${rgba(theme.chipHover, .72)})`;
+    
+    els.homeMiniPlayer.style.background = 'transparent';
+    els.homeMiniPlayer.querySelector('.home-mini-player-shell').style.background = 'transparent';
+    
+    document.getElementById('miniPlayerBg').style.backgroundImage = `url('${track.cover.png}')`;
+    els.miniHeartBtn.classList.toggle('text-[#111111]', true);
+    els.miniFollowBtn.classList.toggle('text-[#111111]', true);
+    if (state.favorites.has(state.trackIndex)) els.miniHeartBtn.classList.add('text-[#111111]'); else els.miniHeartBtn.classList.remove('text-[#111111]');
+    if (state.following.has(state.trackIndex)) els.miniFollowBtn.classList.add('text-[#111111]'); else els.miniFollowBtn.classList.remove('text-[#111111]');
+  };
+
+  const renderHome = () => {
+    els.listenAgainRow.innerHTML = tracks.map((track, index) => `
+      <button class="text-left flex-none w-[150px] home-card overflow-hidden" data-track="${index}">
+        <div class="w-[150px] h-[150px] rounded-[14px] overflow-hidden bg-[#8b7357]">${createCoverMarkup(track)}</div>
+        <div class="px-2 py-2">
+          <div class="text-[1rem] text-[#111111] truncate">${track.title}</div>
+          <div class="text-[.95rem] text-[#6b5c49] truncate">${track.artist}</div>
+        </div>
+      </button>
+    `).join('');
+
+    els.newReleaseRow.innerHTML = Array.from({ length: 2 }, (_, col) => `
+      <div class="flex-none w-[250px] home-card p-3">
+        ${tracks.map((track, i) => {
+          const idx = (i + col) % tracks.length;
+          const t = tracks[idx];
+          return `
+            <button class="flex items-center gap-3 w-full text-left py-2" data-track="${idx}">
+              <div class="w-14 h-14 rounded-md overflow-hidden bg-[#8b7357] shrink-0">${createCoverMarkup(t)}</div>
+              <div class="min-w-0">
+                <div class="text-[1rem] text-[#111111] truncate">${t.title}</div>
+                <div class="text-[.95rem] text-[#6b5c49] truncate">${t.artist}</div>
+              </div>
+            </button>
+          `;
+        }).join('')}
+      </div>
+    `).join('');
+
+    els.artistsRow.innerHTML = listeners.map(person => `
+      <button class="flex-none w-[118px] home-card p-2 flex flex-col items-center text-center">
+        <div class="w-[112px] h-[112px] mx-auto rounded-full overflow-hidden bg-[#8b7357]">${createAvatarMarkup(person)}</div>
+        <div class="mt-2 text-[1.05rem] text-[#111111]">${person.name}</div>
+        <div class="mt-1 text-[.92rem] text-[#6b5c49] flex items-center justify-center gap-1">${ICONS.userPlusOutline.replace('w-8 h-8','w-4 h-4')} <span>${person.followers}</span></div>
+      </button>
+    `).join('');
+
+    els.homeView.querySelectorAll('#listenAgainRow [data-track], #newReleaseRow [data-track]').forEach(btn => {
+      btn.addEventListener('click', (e) => openPlayerFromClick(e, Number(btn.dataset.track)));
+    });
+  };
+
+  const renderFollowView = () => {
+    const followed = tracks.map((t, i) => ({ t, i })).filter(({ i }) => state.following.has(i));
+    els.followList.innerHTML = followed.length ? followed.map(({ t, i }) => `
+      <button class="w-full flex items-center gap-3 p-3 border-b border-[#aa9373] last:border-b-0 text-left" data-track="${i}">
+        <div class="w-16 h-16 rounded-md overflow-hidden bg-[#8b7357] shrink-0">${createCoverMarkup(t)}</div>
+        <div class="min-w-0">
+          <div class="text-[#111111] text-[1rem] truncate">${t.title}</div>
+          <div class="text-[#6b5c49] text-[.95rem] truncate">${t.artist}</div>
+        </div>
+      </button>
+    `).join('') : `<div class="p-6 text-[#6b5c49]">You have not followed any music yet.</div>`;
+
+  };
+
+  const renderSearchResults = () => {
+    const q = sanitize(els.searchInput?.value || els.searchBar?.value || state.searchQuery);
+    state.searchQuery = q;
+    if (els.searchBar && els.searchBar.value !== q) els.searchBar.value = q;
+    if (els.searchInput && els.searchInput.value !== q) els.searchInput.value = q;
+    if (state.view === 'search') renderSearchPage();
+  };
+
+
+  const sanitize = (value) => String(value || '').trim();
+
+  const hasSearchFilter = (label) => state.searchFilters.some(item => item.toLowerCase() === label.toLowerCase());
+
+  const toggleSearchFilter = (label) => {
+    const key = label.toLowerCase();
+    const idx = state.searchFilters.findIndex(item => item.toLowerCase() === key);
+    if (idx >= 0) state.searchFilters.splice(idx, 1);
+    else state.searchFilters.push(label);
+  };
+
+  const pushSearchHistory = (value) => {
+    const term = sanitize(value);
+    if (!term) return;
+    state.searchHistory = [term, ...state.searchHistory.filter(item => item.toLowerCase() !== term.toLowerCase())].slice(0, 8);
+  };
+
+  const getSearchMatches = () => {
+    const q = sanitize(state.searchQuery).toLowerCase();
+    const filters = state.searchFilters.map(item => item.toLowerCase());
+    return tracks.filter(track => {
+      const haystack = [track.title, track.artist, ...track.genres, ...track.instruments].join(' ').toLowerCase();
+      const matchesQuery = !q || haystack.includes(q);
+      const matchesFilter = !filters.length || filters.some(filter => track.genres.concat(track.instruments).some(item => item.toLowerCase() === filter));
+      return matchesQuery && matchesFilter;
+    });
+  };
+
+  const renderSearchPage = () => {
+    if (!els.searchView) return;
+    const allGenres = [...new Set(tracks.flatMap(track => track.genres))];
+    const allInstruments = [...new Set(tracks.flatMap(track => track.instruments))];
+    const matches = getSearchMatches();
+    const q = sanitize(state.searchQuery);
+
+    if (els.searchBar && els.searchBar.value !== state.searchQuery) els.searchBar.value = state.searchQuery;
+    if (els.searchInput && els.searchInput.value !== state.searchQuery) els.searchInput.value = state.searchQuery;
+
+    els.searchGenreRow.innerHTML = allGenres.map(label => `
+      <button class="search-chip ${hasSearchFilter(label) ? 'active' : ''}" data-search-filter="${label}">${label}</button>
+    `).join('');
+
+    els.searchInstrumentRow.innerHTML = allInstruments.map(label => `
+      <button class="search-chip ${hasSearchFilter(label) ? 'active' : ''}" data-search-filter="${label}">${label}</button>
+    `).join('');
+
+    els.searchSongList.innerHTML = matches.length ? matches.map(track => `
+      <button class="w-full flex items-center gap-3 rounded-[18px] p-3 text-left search-history-row" data-open-track="${tracks.indexOf(track)}">
+        <div class="w-14 h-14 rounded-[14px] overflow-hidden bg-[#8b7357] shrink-0">${createCoverMarkup(track)}</div>
+        <div class="min-w-0 flex-1">
+          <div class="text-[#111111] truncate">${track.title}</div>
+          <div class="text-[#6b5c49] truncate">${track.artist}</div>
+          <div class="text-[#7a684e] text-xs truncate">${track.genres.join(' · ')} · ${track.instruments.join(' · ')}</div>
+        </div>
+      </button>
+    `).join('') : `<div class="text-[#6b5c49] py-4">No songs match your search.</div>`;
+
+    if (els.searchHistorySection) els.searchHistorySection.classList.toggle('hidden', !q);
+    els.searchHistoryList.innerHTML = q ? (state.searchHistory.length ? state.searchHistory.map(term => `
+      <div class="search-history-row rounded-[18px] px-3 py-3 flex items-center gap-3">
+        <button class="flex items-center gap-3 min-w-0 flex-1 text-left" data-search-history="${term}">
+          <span class="text-[#111111] shrink-0">${ICONS.arrowUpRight}</span>
+          <span class="text-[#111111] truncate">${term}</span>
+        </button>
+        <button class="w-8 h-8 grid place-items-center text-[#6b5c49]" data-remove-history="${term}" aria-label="Remove history item">×</button>
+      </div>
+    `).join('') : `<div class="text-[#6b5c49] py-4">No recent searches yet.</div>`) : '';
+    els.searchGenreRow.querySelectorAll('[data-search-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        toggleSearchFilter(btn.dataset.searchFilter);
+        renderSearchPage();
+      });
+    });
+
+    els.searchInstrumentRow.querySelectorAll('[data-search-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        toggleSearchFilter(btn.dataset.searchFilter);
+        renderSearchPage();
+      });
+    });
+
+    els.searchSongList.querySelectorAll('[data-open-track]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        if (shouldIgnorePlayerOpen(e)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        const index = Number(btn.dataset.openTrack);
+        pushSearchHistory(tracks[index]?.title || state.searchQuery);
+        setView('home');
+        openPlayer(index);
+      });
+    });
+
+    els.searchHistoryList.querySelectorAll('[data-search-history]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const term = btn.dataset.searchHistory;
+        state.searchQuery = term;
+        renderSearchPage();
+      });
+    });
+
+    els.searchHistoryList.querySelectorAll('[data-remove-history]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const term = btn.dataset.removeHistory;
+        state.searchHistory = state.searchHistory.filter(item => item !== term);
+        renderSearchPage();
+      });
+    });
+
+    els.micBtn.innerHTML = ICONS.mic;
+    els.micBtn.classList.toggle('mic-listening', state.voiceActive);
+    els.searchBlurOverlay.classList.toggle('hidden', !state.voiceActive);
+    const micActive = state.view === 'search';
+    els.micBtn.classList.toggle('pointer-events-none', !micActive);
+    els.micBtn.classList.toggle('pointer-events-auto', micActive);
+    els.micBtn.setAttribute('aria-hidden', String(!micActive));
+  };
+  const renderVoiceResultPage = () => {
+    if (els.voiceCloseBtn) els.voiceCloseBtn.innerHTML = ICONS.xMark;
+  };
+
+ const renderPlayer = () => {
+    const track = getTrack();
+    const theme = getThemeColors();
+    const total = track.duration;
+    const trackChanged = state.lastRenderedTrackIndex !== state.trackIndex;
+
+    // Update stable, track-specific elements only when the track changes.
+    if (trackChanged) {
+      els.playerBg.style.backgroundImage = `url('${track.cover.png}')`;
+      els.trackTitleMarquee.textContent = track.title;
+      els.trackArtist.textContent = track.artist;
+      els.listenedCount.textContent = track.listened;
+      els.dateText.textContent = track.date;
+      els.totalTime.textContent = formatTime(total);
+      els.coverArt.innerHTML = createCoverMarkup(track);
+      els.lyricsText.innerHTML = track.lyrics.map(line => `<div class="py-1">${line}</div>`).join('');
+      els.genreChips.innerHTML = track.genres.map(createChip).join('');
+      els.instrumentChips.innerHTML = track.instruments.map(createChip).join('');
+      els.upNextPanel.innerHTML = tracks.map((t, idx) => {
+        if (idx === state.trackIndex) return '';
+        return `
+        <div class="flex items-center gap-3 py-3 px-2 border-b border-[--panel] last:border-b-0 hover:bg-[--chip] transition cursor-pointer" data-up-next-track="${idx}">
+          <div class="w-16 h-16 rounded-md overflow-hidden shrink-0 bg-[--panel]">
+            <img src="${t.cover.png}" class="w-full h-full object-cover" loading="eager" decoding="async" draggable="false" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-[1.03rem] text-[#111111] truncate">${t.title}</div>
+            <div class="text-[.95rem] text-[#6b5c49] leading-snug">${formatTime(t.duration)}<br>${t.artist}</div>
+          </div>
+        </div>
+      `;
+      }).join('');
+      els.commentPanel.innerHTML = track.comments.map(comment => {
+        const vote = state.votes[state.trackIndex];
+        return `
+        <div class="py-4 px-2 border-b border-[#8b7357] last:border-b-0">
+          <div class="flex gap-3">
+            <div class="w-10 h-10 rounded-full overflow-hidden bg-[#c4b29a] shrink-0">${avatarCircle(comment.avatar)}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-2">
+                <div class="text-[.95rem] font-semibold text-[#111111]">${comment.name}</div>
+                <div class="text-xs text-[#6b5c49] flex items-center gap-3 shrink-0">
+                  <button data-like class="flex items-center gap-1 ${vote === 1 ? 'text-[#111111]' : 'text-[#6b5c49]'}">${vote === 1 ? ICONS.thumbsUpFill : ICONS.thumbsUpOutline}${comment.likes}</button>
+                  <button data-dislike class="flex items-center gap-1 ${vote === -1 ? 'text-[#111111]' : 'text-[#6b5c49]'}">${vote === -1 ? ICONS.thumbsDownFill : ICONS.thumbsDownOutline}${comment.dislikes}</button>
+                </div>
+              </div>
+              <div class="mt-1 text-[.98rem] leading-6 text-[#111111]">${comment.text}</div>
+              <button class="mt-3 text-xs text-[#6b5c49] hover:text-[#111111]">Reply (${comment.replies})</button>
+            </div>
+          </div>
+        </div>
+      `;
+      }).join('');
+      state.lastRenderedTrackIndex = state.trackIndex;
+
+      const renderToken = ++state.coverRenderToken;
+      void (async () => {
+        const colors = await getThemeFromImage(track.cover.png);
+        if (renderToken !== state.coverRenderToken || state.trackIndex !== tracks.indexOf(track)) return;
+        const bgGradient = `radial-gradient(circle at 50% 24%, ${rgba(colors.primary, 0.18)} 0%, ${rgba(colors.muted, 0.24)} 45%, ${theme.bg} 100%)`;
+        els.playerBg.style.backgroundImage = `${bgGradient}, url('${track.cover.png}')`;
+        els.playerBg.style.backgroundSize = 'cover, cover';
+        els.playerBg.style.backgroundPosition = 'center, center';
+        els.playerBg.style.backgroundRepeat = 'no-repeat, no-repeat';
+        els.miniVinylBtn.style.background = `linear-gradient(135deg, ${rgba(theme.chip, .35)}, ${rgba(theme.chipHover, .72)})`;
+      })();
+    }
+
+    // Time/progress changes every tick; update only these per second.
+    els.currentTime.textContent = formatTime(state.progress);
+    els.songTab.className = `button-pill ${!state.lyrics ? 'active' : 'inactive'} px-5 py-2 rounded-full text-sm`;
+    els.lyricsTab.className = `button-pill ${state.lyrics ? 'active' : 'inactive'} px-5 py-2 rounded-full text-sm`;
+    els.songView.classList.toggle('hidden', state.lyrics);
+    els.lyricsView.classList.toggle('hidden', !state.lyrics);
+    els.upNextTab.className = `button-pill ${state.activeDrawer === 'upnext' ? 'active' : 'inactive'} w-1/2 py-4 rounded-tl-3xl rounded-tr-xl text-sm tracking-[0.18em]`;
+    els.commentTab.className = `button-pill ${state.activeDrawer === 'comment' ? 'active' : 'inactive'} w-1/2 py-4 rounded-tr-3xl rounded-tl-xl text-sm tracking-[0.18em]`;
+    els.upNextPanel.classList.toggle('hidden', state.activeDrawer !== 'upnext');
+    els.commentPanel.classList.toggle('hidden', state.activeDrawer !== 'comment');
+
+    els.playIcon.classList.toggle('hidden', state.playing);
+    els.pauseIcon.classList.toggle('hidden', !state.playing);
+    els.vinylWrap.classList.toggle('vinyl-spin', state.playing);
+    els.vinylWrap.classList.toggle('vinyl-stop', !state.playing);
+    els.tonearm.classList.toggle('playing', state.playing);
+
+    const bars = els.waveform.querySelectorAll('.wave-bar');
+    bars.forEach((bar, idx) => {
+      const pct = idx / (bars.length - 1);
+      const played = pct <= (state.progress / total);
+      bar.classList.toggle('played', played);
+      bar.style.opacity = played ? '1' : '.9';
+    });
+
+    renderMiniPlayer();
+  };
+
+  const setCurrentTrack = (index, autoplay = false) => {
+    state.trackIndex = (index + tracks.length) % tracks.length;
+    state.progress = 0;
+    state.lyrics = false;
+    renderAll();
+    if (autoplay) {
+      state.playing = true;
+      startTimer();
+    }
+    renderPlayer();
+  };
+
+  const openPlayer = (index) => {
+    state.trackIndex = (index + tracks.length) % tracks.length;
+    state.progress = 0;
+    state.lyrics = false;
+    state.activeDrawer = 'upnext';
+    state.lastRenderedTrackIndex = null;
+    setView('player');
+    state.playing = true;
+    startTimer();
+    renderAll();
+  };
+
+  const renderAll = () => {
+    renderHome();
+    renderMiniPlayer();
+    renderPlayer();
+    renderFollowView();
+    renderSearchResults();
+    renderSearchPage();
+    renderVoiceResultPage();
+  };
+
+  const stopTimer = () => {
+    if (state.timer) clearInterval(state.timer);
+    state.timer = null;
+  };
+
+  const startTimer = () => {
+    stopTimer();
+    state.timer = setInterval(() => {
+      if (!state.playing) return;
+      state.progress += 1;
+      const track = getTrack();
+      if (state.progress >= track.duration) {
+        if (state.repeat) {
+          state.progress = 0;
+        } else {
+          state.progress = 0;
+          nextTrack(true);
+        }
+      }
+      renderPlayer();
+    }, 1000);
+  };
+
+  const togglePlay = () => {
+    state.playing = !state.playing;
+    if (state.playing && !state.timer) startTimer();
+    renderPlayer();
+  };
+
+  const animateMiniSwap = () => {
+    els.miniVinylBtn.classList.remove('mini-swap');
+    void els.miniVinylBtn.offsetWidth;
+    els.miniVinylBtn.classList.add('mini-swap');
+  };
+
+  const swapMiniTrack = (delta) => {
+    const nextIndex = (state.trackIndex + delta + tracks.length) % tracks.length;
+    animateMiniSwap();
+    state.miniAnimating = true;
+    setTimeout(() => {
+      state.trackIndex = nextIndex;
+      state.progress = 0;
+      renderAll();
+      state.miniAnimating = false;
+      if (state.view === 'player' && state.playing && !state.timer) startTimer();
+    }, 180);
+  };
+
+  const nextTrack = (auto = false) => {
+    if (state.shuffle && !auto) {
+      let next = Math.floor(Math.random() * tracks.length);
+      if (next === state.trackIndex) next = (next + 1) % tracks.length;
+      state.trackIndex = next;
+    } else {
+      state.trackIndex = (state.trackIndex + 1) % tracks.length;
+    }
+    state.progress = 0;
+    renderAll();
+    if (state.playing && !state.timer) startTimer();
+  };
+
+  const prevTrack = () => {
+    if (state.progress > 4) {
+      state.progress = 0;
+      renderPlayer();
+      return;
+    }
+    state.trackIndex = (state.trackIndex - 1 + tracks.length) % tracks.length;
+    state.progress = 0;
+    renderAll();
+    if (state.playing && !state.timer) startTimer();
+  };
+
+let isDrawerRevealed = false;
+const toggleDrawer = () => {
+  isDrawerRevealed = !isDrawerRevealed;
+  if (isDrawerRevealed) {
+    // Slide up into view
+    els.drawerWrapper.style.marginTop = "0px";
+    els.drawerPanel.classList.remove('drawer-collapsed');
+    els.drawerPanel.classList.add('drawer-expanded');
+    els.drawerToggle.innerHTML = ICONS.chevronUp;
+  } else {
+    // Return to "peek" position
+    els.drawerWrapper.style.marginTop = "-155px";
+    els.drawerPanel.classList.remove('drawer-expanded');
+    els.drawerPanel.classList.add('drawer-collapsed');
+    els.drawerToggle.innerHTML = ICONS.chevronDown;
+  }
+};
+
+  const toggleFavorite = () => {
+    if (state.favorites.has(state.trackIndex)) state.favorites.delete(state.trackIndex);
+    else state.favorites.add(state.trackIndex);
+    renderMiniPlayer();
+  };
+
+  const toggleFollow = () => {
+    if (state.following.has(state.trackIndex)) state.following.delete(state.trackIndex);
+    else state.following.add(state.trackIndex);
+    renderMiniPlayer();
+    renderFollowView();
+  };
+
+  const voteTrack = (value) => {
+    state.votes[state.trackIndex] = state.votes[state.trackIndex] === value ? 0 : value;
+    renderPlayer();
+  };
+
+  const openSearch = () => { state.searchFilters = []; state.searchQuery = ''; renderSearchResults(); setView('search'); };
+  const openCreate = () => { setView('create'); };
+  const openFollow = () => { renderFollowView(); setView('follow'); };
+  const openVoiceSearch = () => {
+    state.voiceActive = true;
+    state.searchFilters = [];
+    state.searchQuery = '';
+    renderSearchPage();
+    setView('search');
+    pushSearchHistory('Voice search');
+    els.searchBlurOverlay?.classList.remove('hidden');
+    setTimeout(() => {
+      state.voiceActive = false;
+      renderSearchPage();
+      setView('voice');
+    }, 1200);
+  };
+
+  const accountPages = {
+    menu: {
+      title: 'Account',
+      content: ''
+    },
+    channel: {
+      title: 'Your channel',
+      content: `
+        <div class="p-4 space-y-3">
+          <div class="flex items-center gap-3">
+            <div class="w-14 h-14 rounded-full overflow-hidden bg-[#8b7357] border border-[#4e3d2b]/[0.18]">
+              <img src="https://cdn.discordapp.com/avatars/663939202416771081/e1eab4127da7152ecc92bfc0e7f9a4a1.png?size=4096" alt="Profile" class="w-full h-full object-cover" />
+            </div>
+            <div class="min-w-0">
+              <div class="text-[#111111] text-[1.02rem] font-semibold truncate">Stolen</div>
+              <div class="text-[#6b5c49] text-[.94rem] truncate">@stolen2504</div>
+            </div>
+          </div>
+          <div class="rounded-[18px] bg-[#dcc8aa] border border-[#4e3d2b]/[0.10] p-4 text-[#111111]">
+            Channel page placeholder. Add uploads, playlists, and featured content here.
+          </div>
+        </div>
+      `
+    },
+    switch: {
+      title: 'Switch account',
+      content: `
+        <div class="p-4 space-y-2">
+          <button class="w-full account-item rounded-[18px] p-3 flex items-center gap-3 text-left">
+            <div class="w-11 h-11 rounded-full overflow-hidden bg-[#8b7357] border border-[#4e3d2b]/[0.18]">
+              <img src="https://cdn.discordapp.com/avatars/663939202416771081/e1eab4127da7152ecc92bfc0e7f9a4a1.png?size=4096" alt="Profile" class="w-full h-full object-cover" />
+            </div>
+            <div>
+              <div class="text-[#111111] font-semibold">Stolen</div>
+              <div class="text-[#6b5c49] text-sm">@stolen2504</div>
+            </div>
+          </button>
+          <button class="w-full account-item rounded-[18px] p-3 text-left text-[#111111]">
+            Add another account
+          </button>
+        </div>
+      `
+    },
+    settings: {
+      title: 'Settings',
+      content: `
+        <div class="p-4 space-y-2">
+          ${['General', 'Playback', 'Notifications', 'Privacy'].map(item => `
+            <button class="w-full account-item rounded-[18px] px-4 py-3 flex items-center justify-between text-left">
+              <span class="text-[#111111]">${item}</span>
+              <span class="text-[#111111]">›</span>
+            </button>
+          `).join('')}
+        </div>
+      `
+    },
+    history: {
+      title: 'History',
+      content: `
+        <div class="p-4 space-y-2">
+          ${tracks.map(track => `
+            <div class="account-item rounded-[18px] p-3 flex items-center gap-3">
+              <div class="w-12 h-12 rounded-md overflow-hidden bg-[#8b7357] shrink-0">
+                <img src="${track.cover.png}" class="w-full h-full object-cover" alt="cover" />
+              </div>
+              <div class="min-w-0">
+                <div class="text-[#111111] truncate">${track.title}</div>
+                <div class="text-[#6b5c49] text-sm truncate">${track.artist}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `
+    },
+    downloads: {
+      title: 'Downloads',
+      content: `
+        <div class="p-4 space-y-2">
+          <div class="rounded-[18px] bg-[#dcc8aa] border border-[#4e3d2b]/[0.10] p-4 text-[#6b5c49]">
+            No downloads yet.
+          </div>
+          <button class="w-full account-item rounded-[18px] px-4 py-3 flex items-center justify-between text-left">
+            <span class="text-[#111111]">Manage storage</span>
+            <span class="text-[#111111]">›</span>
+          </button>
+        </div>
+      `
+    },
+    help: {
+      title: 'Help',
+      content: `
+        <div class="p-4 space-y-2">
+          ${['Help center', 'Contact support', 'Report a problem', 'Send feedback'].map(item => `
+            <button class="w-full account-item rounded-[18px] px-4 py-3 flex items-center justify-between text-left">
+              <span class="text-[#111111]">${item}</span>
+              <span class="text-[#111111]">›</span>
+            </button>
+          `).join('')}
+        </div>
+      `
+    }
+  };
+
+  const openAccountMenu = () => {
+    state.accountPage = 'menu';
+    els.accountCloseBtn.innerHTML = ICONS.xMark;
+    els.accountMenuView.classList.remove('hidden');
+    els.accountPageView.classList.add('hidden');
+    els.accountModal.classList.remove('hidden');
+  };
+
+  const closeAccountModal = () => {
+    els.accountModal.classList.add('hidden');
+    els.signOutModal.classList.add('hidden');
+    state.accountPage = 'menu';
+  };
+
+  const openAccountPage = (page) => {
+    const target = accountPages[page];
+    if (!target) return;
+    state.accountPage = page;
+    els.accountCloseBtn.innerHTML = ICONS.xMark;
+    els.accountMenuView.classList.add('hidden');
+    els.accountPageView.classList.remove('hidden');
+    els.accountPageTitle.textContent = target.title;
+    els.accountPageContent.innerHTML = target.content;
+    els.accountModal.classList.remove('hidden');
+  };
+
+  const openSignOutConfirm = () => {
+    els.signOutModal.classList.remove('hidden');
+  };
+
+  const closeSignOutConfirm = () => {
+    els.signOutModal.classList.add('hidden');
+  };
+
+  els.closePlayer.addEventListener('click', () => setView('home'));
+  els.backHomeBtn.addEventListener('click', () => setView('home'));
+  els.songTab.addEventListener('click', () => { state.lyrics = false; renderPlayer(); });
+  els.lyricsTab.addEventListener('click', () => { state.lyrics = true; renderPlayer(); });
+  els.playBtn.addEventListener('click', togglePlay);
+  els.nextBtn.addEventListener('click', nextTrack);
+  els.prevBtn.addEventListener('click', prevTrack);
+  els.shuffleBtn.addEventListener('click', () => { state.shuffle = !state.shuffle; els.shuffleBtn.classList.toggle('opacity-100', state.shuffle); els.shuffleBtn.classList.toggle('opacity-90', !state.shuffle); });
+  els.repeatBtn.addEventListener('click', () => { state.repeat = !state.repeat; els.repeatBtn.classList.toggle('opacity-100', state.repeat); els.repeatBtn.classList.toggle('opacity-90', !state.repeat); });
+  els.drawerToggle.addEventListener('click', toggleDrawer);
+  els.upNextTab.addEventListener('click', () => { state.activeDrawer = 'upnext'; renderPlayer(); });
+  els.commentTab.addEventListener('click', () => { state.activeDrawer = 'comment'; renderPlayer(); });
+
+  els.miniHeartBtn.addEventListener('click', toggleFavorite);
+  els.miniFollowBtn.addEventListener('click', toggleFollow);
+  els.followPageBtn.addEventListener('click', openFollow);
+  els.searchBtn.addEventListener('click', openSearch);
+  els.createBtn.addEventListener('click', openCreate);
+  els.micBtn.addEventListener('click', (e) => {
+    if (document.activeElement) {
+      document.activeElement.blur();
+    }
+    state.voiceActive = !state.voiceActive;
+    renderSearchPage();
+    if (state.voiceActive) {
+      setTimeout(() => {
+        if (state.voiceActive) {
+          state.voiceActive = false;
+          setView('voice');
+          renderAll();
+        }
+      }, 3000);
+    }
+  });
+  els.searchBar.addEventListener('focus', () => {
+    if (state.voiceActive) {
+      els.searchBar.blur();
+    }
+  });
+  els.miniVinylBtn.addEventListener('click', (e) => openPlayerFromClick(e, state.trackIndex));
+  els.miniPrevBtn.addEventListener('click', () => swapMiniTrack(-1));
+  els.miniNextBtn.addEventListener('click', () => swapMiniTrack(1));
+  els.accountBtn.addEventListener('click', openAccountMenu);
+  els.themeToggleBtn.addEventListener('click', toggleTheme);
+  els.themeToggleBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleTheme();
+    }
+  });
+  els.accountCloseBtn.addEventListener('click', () => {
+    if (els.accountPageView.classList.contains('hidden')) closeAccountModal();
+    else openAccountMenu();
+  });
+  els.accountModal.addEventListener('click', (e) => {
+    if (e.target === els.accountModal || e.target.classList.contains('account-backdrop')) closeAccountModal();
+  });
+  els.accountMenuView.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-account-page]');
+    if (btn) openAccountPage(btn.dataset.accountPage);
+    if (e.target.closest('[data-account-signout]')) openSignOutConfirm();
+    if (e.target.closest('#manageAccountBtn')) openAccountPage('channel');
+  });
+  els.accountPageView.addEventListener('click', (e) => {
+    if (e.target.closest('.account-item')) return;
+  });
+  els.cancelSignOutBtn.addEventListener('click', closeSignOutConfirm);
+  els.confirmSignOutBtn.addEventListener('click', () => {
+    closeSignOutConfirm();
+    closeAccountModal();
+    setView('home');
+  });
+  els.signOutModal.addEventListener('click', (e) => {
+    if (e.target === els.signOutModal || e.target.classList.contains('account-backdrop')) closeSignOutConfirm();
+  });
+
+  els.closeSearchBtn.addEventListener('click', () => setView('home'));
+  els.closeCreateBtn.addEventListener('click', () => setView('home'));
+  els.searchInput.addEventListener('input', renderSearchResults);
+  els.voiceCloseBtn?.addEventListener('click', () => setView('home'));
+
+  els.searchResults.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-track]');
+    if (!btn) return;
+    if (shouldIgnorePlayerOpen(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    setView('home');
+    openPlayer(Number(btn.dataset.track));
+  });
+
+  els.followList.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-track]');
+    if (!btn) return;
+    openPlayerFromClick(e, Number(btn.dataset.track));
+  });
+
+  els.upNextPanel.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-up-next-track]');
+    if (!btn) return;
+    openPlayerFromClick(e, Number(btn.dataset.upNextTrack));
+  });
+
+  els.commentPanel.addEventListener('click', (e) => {
+    if (e.target.closest('[data-like]')) voteTrack(1);
+    if (e.target.closest('[data-dislike]')) voteTrack(-1);
+  });
+
+  els.closePlayer.innerHTML = ICONS.xMark;
+  els.drawerToggle.innerHTML = ICONS.chevronDown;
+  els.micBtn.innerHTML = ICONS.mic;
+  els.voiceCloseBtn.innerHTML = ICONS.xMark;
+  els.micBtn.classList.add('pointer-events-none');
+  els.micBtn.classList.remove('pointer-events-auto');
+  els.micBtn.setAttribute('aria-hidden', 'true');
+  els.shuffleBtn.innerHTML = ICONS.shuffle;
+  els.prevBtn.innerHTML = ICONS.chevronLeft;
+  els.nextBtn.innerHTML = ICONS.chevronRight;
+  els.repeatBtn.innerHTML = ICONS.repeat;
+  els.playIcon.innerHTML = ICONS.play;
+  els.pauseIcon.innerHTML = ICONS.pause;
+  els.backHomeBtn.innerHTML = ICONS.back;
+  els.closeSearchBtn.innerHTML = ICONS.xMark;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!els.signOutModal.classList.contains('hidden')) closeSignOutConfirm();
+      else if (!els.accountModal.classList.contains('hidden')) closeAccountModal();
+      else if (state.view === 'search' || state.view === 'create' || state.view === 'voice') setView('home');
+    }
+  });
+
+  els.closeCreateBtn.innerHTML = ICONS.xMark;
+  els.accountCloseBtn.innerHTML = ICONS.xMark;
+
+  const applyZoom = (delta) => {
+  // Clamp zoom between 50% and 150%
+  state.zoom = Math.min(Math.max(state.zoom + delta, 50), 150);
+  
+  // Update the UI display
+  if (els.zoomLevelDisplay) {
+    els.zoomLevelDisplay.textContent = `${state.zoom}%`;
+  }
+  
+  // Apply the zoom factor
+  // Note: We use zoom for MVP as it scales layout better than transform: scale
+  els.appShell.style.zoom = state.zoom / 100;
+};
+
+// Hook up the buttons
+els.zoomInBtn.onclick = () => applyZoom(5);
+els.zoomOutBtn.onclick = () => applyZoom(-5);
+
+// Initialize the starting zoom on load
+window.addEventListener('DOMContentLoaded', () => {
+  applyZoom(0); 
+});
+
+const blurOverlay = document.getElementById('searchBlurOverlay');
+const micIcon = document.getElementById('active-mic-icon');
+const pulseRing = document.getElementById('mic-pulse-ring');
+
+let audioContext, analyser, dataArray, animationId;
+
+// Call this function when the user clicks your trigger mic button
+async function startVoiceSearch() {
+  // Show the overlay
+  blurOverlay.classList.remove('hidden');
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    
+    source.connect(analyser);
+    analyser.fftSize = 64; // Small size for snappier UI feedback
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    function animate() {
+      animationId = requestAnimationFrame(animate);
+      analyser.getByteFrequencyData(dataArray);
+
+      // Get volume average
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+      let volume = sum / dataArray.length;
+
+      // Map volume to scale (Normal: 1.0, Loud: ~1.8)
+      let scale = 1 + (volume / 128); 
+      
+      micIcon.style.transform = `scale(${scale})`;
+      pulseRing.style.transform = `scale(${scale * 1.4})`;
+      pulseRing.style.opacity = (volume / 128); // Ring gets brighter when loud
+    }
+
+    animate();
+
+    // To stop search after 5 seconds (simulating recognition)
+    setTimeout(stopVoiceSearch, 5000);
+
+  } catch (err) {
+    console.error("Mic access denied", err);
+    blurOverlay.classList.add('hidden');
+  }
+}
+
+function stopVoiceSearch() {
+  cancelAnimationFrame(animationId);
+  if (audioContext) audioContext.close();
+  blurOverlay.classList.add('hidden');
+  // Trigger your results view here...
+}
+
+  applyTheme();
+  makeWave();
+  renderAll();
+  setView('home');
+  renderMiniPlayer();
+
+  
+</script>
+</body>
+</html>
