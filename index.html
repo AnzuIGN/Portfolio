@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Andrew J. Repollo | Portfolio</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik+Glitch&family=VT323&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind Configuration -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            text: '#ccc',
+            muted: '#888',
+            bg: '#111',
+            outer: '#000',
+            panel: '#222',
+            panel2: '#333',
+            panelSoft: '#171717',
+            chip: '#444',
+            chipHover: '#555',
+            accentBlue: 'rgba(62, 166, 255, 0.4)',
+            accentYellow: 'rgba(139, 115, 87, 0.6)',
+            line: 'rgba(255, 255, 255, 0.08)',
+            wash: 'rgba(255, 255, 255, 0.03)'
+          },
+          fontFamily: {
+            space: ['"Space Mono"', 'monospace'],
+            glitch: ['"Rubik Glitch"', 'system-ui'],
+            vt323: ['"VT323"', 'monospace'],
+            nanum: ['"Nanum Pen Script"', 'cursive']
+          },
+          keyframes: {
+            noiseShift: {
+              '0%': { transform: 'translate(0, 0)' },
+              '10%': { transform: 'translate(-5%, -5%)' },
+              '20%': { transform: 'translate(-10%, 5%)' },
+              '30%': { transform: 'translate(5%, -10%)' },
+              '40%': { transform: 'translate(-5%, 15%)' },
+              '50%': { transform: 'translate(-10%, 5%)' },
+              '60%': { transform: 'translate(15%, 0)' },
+              '70%': { transform: 'translate(0, 10%)' },
+              '80%': { transform: 'translate(-15%, 0)' },
+              '90%': { transform: 'translate(10%, 5%)' },
+              '100%': { transform: 'translate(5%, 0)' }
+            },
+            glitch1: {
+              '0%': { clipPath: 'polygon(0 20%, 100% 20%, 100% 21%, 0 21%)' },
+              '20%': { clipPath: 'polygon(0 33%, 100% 33%, 100% 33%, 0 33%)' },
+              '40%': { clipPath: 'polygon(0 44%, 100% 44%, 100% 44%, 0 44%)' },
+              '60%': { clipPath: 'polygon(0 50%, 100% 50%, 100% 20%, 0 20%)' },
+              '80%': { clipPath: 'polygon(0 70%, 100% 70%, 100% 70%, 0 70%)' },
+              '100%': { clipPath: 'polygon(0 80%, 100% 80%, 100% 80%, 0 80%)' }
+            },
+            glitch2: {
+              '0%': { clipPath: 'polygon(0 25%, 100% 25%, 100% 30%, 0 30%)' },
+              '20%': { clipPath: 'polygon(0 3%, 100% 3%, 100% 3%, 0 3%)' },
+              '40%': { clipPath: 'polygon(0 5%, 100% 5%, 100% 20%, 0 20%)' },
+              '60%': { clipPath: 'polygon(0 15%, 100% 15%, 100% 15%, 0 15%)' },
+              '80%': { clipPath: 'polygon(0 10%, 100% 10%, 100% 10%, 0 10%)' },
+              '100%': { clipPath: 'polygon(0 30%, 100% 30%, 100% 30%, 0 30%)' }
+            }
+          },
+          animation: {
+            'noise': 'noiseShift 8s steps(10) infinite',
+            'glitch-1': 'glitch1 2.5s infinite linear alternate-reverse',
+            'glitch-2': 'glitch2 3s infinite linear alternate-reverse'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer components {
+      /* Bespoke Glitch Title Styles */
+      .glitch-title::before, .glitch-title::after {
+        @apply content-[attr(data-text)] absolute top-0 left-0 w-full h-full bg-outer;
+        clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+      }
+      .glitch-title::before {
+        @apply left-[3px] animate-glitch-1;
+        text-shadow: -2px 0 red;
+      }
+      .glitch-title::after {
+        @apply -left-[3px] animate-glitch-2;
+        text-shadow: -2px 0 cyan;
+        clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+      }
+
+      /* Base panel styles to reduce HTML clutter */
+      .retro-panel {
+        @apply bg-[#111111]/85 border border-chip p-[clamp(1.5rem,3vw,2rem)] relative backdrop-blur-[4px] h-full;
+      }
+      
+      .retro-panel-title {
+        @apply font-vt323 text-[clamp(1.5rem,3vw,2rem)] text-text mb-4 uppercase border-b border-dashed border-muted inline-block;
+      }
+    }
+  </style>
+</head>
+<body class="bg-outer text-text font-space overflow-x-hidden min-h-screen relative">
+
+  <!-- Scanlines Overlay -->
+  <div class="fixed top-0 left-0 w-screen h-screen bg-[linear-gradient(to_bottom,transparent,transparent_50%,rgba(0,0,0,0.2)_50%,rgba(0,0,0,0.2))] bg-[size:100%_4px] pointer-events-none z-[100]"></div>
+  
+  <!-- Noise Overlay -->
+  <div class="fixed -top-1/2 -left-1/2 w-[200%] h-[200%] bg-[url('data:image/svg+xml,%3Csvg_viewBox=%220_0_200_200%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22noiseFilter%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%220.65%22_numOctaves=%223%22_stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23noiseFilter)%22_opacity=%220.15%22/%3E%3C/svg%3E')] animate-noise pointer-events-none z-[99] mix-blend-overlay bg-transparent"></div>
+
+  <!-- Background Collage Elements -->
+  <div class="absolute inset-0 z-0 overflow-hidden">
+    <img src="90ab4ada46e7e843454ab0fbe256ae1a.jpg" alt="Ghosted Guitar Texture" class="absolute object-cover grayscale contrast-150 brightness-50 mix-blend-hard-light opacity-15 -top-[10%] -left-[10%] w-[70vw] h-[70vh]" />
+    <img src="a3b96a7796b9e440832948376755b409.jpg" alt="Metal Wires Texture" class="absolute object-cover grayscale contrast-150 brightness-50 mix-blend-luminosity opacity-20 bottom-0 right-0 w-[60vw] h-[80vh]" />
+    <img src="e8fa8e81c98cd89c0103227438bc4e0a.jpg" alt="Halftone Distorted Portrait" class="absolute object-cover grayscale contrast-[300%] invert brightness-50 mix-blend-screen opacity-25 top-[30%] left-[20%] w-[40vw] h-[50vh]" />
+    
+    <!-- Geo Block Blue -->
+    <div class="absolute w-[clamp(200px,30vw,400px)] h-[clamp(150px,20vh,250px)] bg-accentBlue top-[15%] right-[10%] mix-blend-color-dodge -rotate-5 z-10"></div>
+  </div>
+
+  <!-- Main Fluid Layout -->
+  <div class="relative w-[95%] max-w-[1400px] mx-auto p-[clamp(2rem,5vw,4rem)_clamp(1rem,3vw,2rem)] min-h-screen grid grid-cols-1 md:grid-cols-[clamp(30px,5vw,60px)_1fr_1fr] lg:grid-cols-[clamp(40px,6vw,80px)_1fr_1fr_1fr] gap-[clamp(1rem,3vw,2rem)] z-10 md:grid-rows-[auto_auto_auto_1fr]">
+    
+    <!-- Vertical Japanese Text -->
+    <div class="col-span-1 row-start-1 border-b-2 border-dashed border-line pb-4 flex justify-center text-center [writing-mode:horizontal-tb] md:col-start-1 md:row-start-1 md:row-span-4 md:[writing-mode:vertical-rl] md:border-b-0 md:border-r-2 md:pb-0 md:pr-[clamp(0.5rem,1vw,1rem)] text-[clamp(1.2rem,2vw,2rem)] text-muted tracking-[0.5rem] opacity-60 font-bold md:items-center">
+      システム // ポートフォリオ // Anzu「杏
+    </div>
+
+    <!-- Typography & Header -->
+    <div class="col-span-1 md:col-span-2 lg:col-span-3 lg:col-start-2 border-b-[5px] border-text pb-4 relative">
+      <h1 class="glitch-title font-glitch text-[clamp(3rem,8vw,8rem)] leading-none uppercase text-text relative break-words" data-text="Repollo, Andrew J.">Repollo, Andrew J.</h1>
+      
+      <!-- Tour Dates / Contact Info -->
+      <div class="font-vt323 text-[clamp(1rem,2.5vw,1.5rem)] text-muted flex flex-col md:flex-row flex-wrap gap-2 md:gap-[clamp(1rem,2vw,2rem)] mt-4 bg-panelSoft px-4 py-2 border border-chipHover">
+        <span class="before:content-['[CONTACT]:_'] before:text-text">09691154473</span>
+        <span class="before:content-['[EMAIL]:_'] before:text-text">Andrew.Jimenez199@yahoo.com</span>
+        <span class="before:content-['[GITHUB]:_'] before:text-text"><a href="https://github.com/AnzuIGN" target="_blank" class="text-inherit no-underline">github.com/AnzuIGN</a></span>
+      </div>
+      <div class="font-vt323 text-[clamp(0.7rem,1.2vw,0.8rem)] text-muted tracking-widest relative mt-4 md:absolute md:bottom-[-25px] md:right-0 md:mt-0 block">
+        [GATES: 19:00] [SHOW: 20:00] SYS.OP_READY
+      </div>
+    </div>
+
+    <!-- Ledger / Newspaper effect for Projects -->
+    <div class="retro-panel col-span-1 md:col-span-2 bg-[#dfdfdf] text-[#111] grayscale contrast-125 drop-shadow-[5px_5px_0px_var(--tw-colors-panel2)] border-none rotate-0 md:rotate-1 transition-transform duration-300">
+      
+      <!-- Tape Accent -->
+      <div class="absolute w-[clamp(60px,8vw,100px)] h-[clamp(20px,3vw,30px)] bg-white/20 backdrop-blur-[2px] -rotate-5 -top-[15px] left-1/2 -ml-[50px] z-10"></div>
+      
+      <h2 class="retro-panel-title !text-black !border-b-[#555] font-bold">PROJECT:</h2>
+      <p class="absolute font-vt323 text-[clamp(0.7rem,1.2vw,0.8rem)] text-muted tracking-widest top-8 right-8">[DATE] AUG 2025 - PRESENT</p>
+      
+      <p class="mt-4 font-bold leading-relaxed mb-2 text-[clamp(0.9rem,1.5vw,1rem)]">MUSIKAI: Genre Classificatin // SYS_LOG:</p>
+      <ul class="ml-4 pl-[clamp(1rem,2vw,1.5rem)] list-disc font-bold leading-relaxed text-[clamp(0.9rem,1.5vw,1rem)]">
+        <li class="mb-2">Developed and optimized a machine learning pipeline for music genre classification using the GTZAN dataset, predicting Top-5 genres from raw audio waveforms.</li>
+        <li class="mb-2">Applied Music Information Retrieval (MIR) techniques and generated Mel spectrograms for feature representation and model input.</li>
+        <li class="mb-2">Implemented and benchmarked multiple algorithms (CNN, Logistic Regression, SVM, Random Forest) to evaluate classification accuracy and inference speed.</li>
+        <li class="mb-2">Conducted comparative performance analysis to balance computational efficiency and predictive performance for real-time backend deployment.</li>
+        <li class="mb-2">Integrated the selected model into a scalable API-based backend system for responsive genre prediction.</li>
+      </ul>
+    </div>
+
+    <!-- Info Blocks -->
+    <div class="col-span-1 lg:col-start-4 lg:col-span-1 flex flex-col md:col-span-2 md:flex-row lg:flex-col gap-[clamp(1rem,3vw,2rem)]">
+      <div class="retro-panel flex-1">
+        <h2 class="retro-panel-title">EDUCATION</h2>
+        <ul class="list-square pl-5 text-muted text-[clamp(0.9rem,1.5vw,1rem)]">
+          <li class="mb-2"><span class="text-text">Lyceum of Philippines University Cavite</span></li>
+          <li class="mb-2"><span class="text-text">B.S Computer Science</span></li>
+          <li class="mb-2"><span class="text-text">[2023 - 2028]</span></li>
+        </ul>
+      </div>
+
+      <div class="retro-panel flex-1 border-muted bg-panel2">
+        <h2 class="retro-panel-title">AWARDS & CERTS</h2>
+        <ul class="list-square pl-5 text-muted text-[clamp(0.9rem,1.5vw,1rem)]">
+          <li class="mb-2"><span class="text-text">Python Essentials 1 & 2</span></li>
+          <li class="mb-2"><span class="text-text">IBM Data Science</span></li>
+          <li class="mb-2"><span class="text-text">Java Certification IT Certiport</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Skills Panel -->
+    <div class="retro-panel col-span-1 md:col-span-2 lg:col-span-3 border-l-[clamp(5px,1vw,10px)] border-l-chipHover bg-wash">
+      <h2 class="retro-panel-title">CORE PROTOCOLS // SKILLS</h2>
+      <ul class="list-square pl-5 text-muted text-[clamp(0.9rem,1.5vw,1rem)] grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4">
+        <li class="mb-2"><span class="text-text">Creative and imaginative approach to problem-solving</span></li>
+        <li class="mb-2"><span class="text-text">Deep curiosity in music, art, and human-centered design</span></li>
+        <li class="mb-2"><span class="text-text">Empathetic perspective when building user-focused systems</span></li>
+        <li class="mb-2"><span class="text-text">Independent yet collaborative in team environments</span></li>
+      </ul>
+      <div class="absolute bottom-[10px] right-[10px] font-vt323 text-[clamp(0.7rem,1.2vw,0.8rem)] text-muted tracking-widest block">END_OF_RECORD // SYS_0x4F</div>
+    </div>
+
+    <!-- Preview Iframe Section -->
+<div class="retro-panel col-span-1 md:col-span-2 lg:col-span-3 !p-0 overflow-hidden flex flex-col border-l-[clamp(5px,1vw,10px)] border-l-accentBlue">
+      
+      <!-- Tape Accent -->
+      <div class="absolute w-[clamp(60px,8vw,100px)] h-[clamp(20px,3vw,30px)] bg-white/20 backdrop-blur-[2px] -rotate-5 -top-[15px] left-1/2 -ml-[50px] z-10"></div>
+      
+      <h2 class="retro-panel-title m-[clamp(1rem,3vw,2rem)_clamp(1rem,3vw,2rem)_1rem]">[DEMO] MUSIKAI UI</h2>
+      <div class="absolute font-vt323 text-[clamp(0.7rem,1.2vw,0.8rem)] text-muted tracking-widest top-10 right-8 block">SYS_IFRAME_ACTIVE</div>
+      
+      <div class="w-full h-[720px] bg-black border-t border-dashed border-chipHover relative">
+          <iframe src="preview.html" class="w-full h-full border-none" title="MusikAI Interactive Preview"></iframe>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
